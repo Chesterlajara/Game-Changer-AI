@@ -8,6 +8,7 @@ from nba_api.live.nba.endpoints import scoreboard as live_scoreboard
 import datetime
 from models.prediction import PredictionModel
 from models.game_analysis import GameAnalysis
+from models.team_stats import TeamStats
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Flutter frontend
@@ -15,6 +16,7 @@ CORS(app)  # Enable CORS for Flutter frontend
 # Initialize models
 prediction_model = PredictionModel()
 game_analysis = GameAnalysis()
+team_stats = TeamStats()
 
 # API Routes for Flutter Frontend
 @app.route('/api/games', methods=['GET'])
@@ -230,6 +232,45 @@ def get_game_analysis(game_id):
         # Use our game analysis model to get detailed analysis
         analysis = game_analysis.get_game_analysis(game_id)
         return jsonify(analysis)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/team-standings', methods=['GET'])
+def get_team_standings():
+    """Get team standings with option to filter by conference"""
+    try:
+        # Get conference filter parameter (optional)
+        conference = request.args.get('conference', None)  # 'East', 'West', or None for all
+        
+        # Use our team stats model to get standings
+        standings = team_stats.get_team_standings(conference)
+        return jsonify(standings)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/team-offensive-stats', methods=['GET'])
+def get_team_offensive_stats():
+    """Get team offensive statistics with option to filter by conference"""
+    try:
+        # Get conference filter parameter (optional)
+        conference = request.args.get('conference', None)  # 'East', 'West', or None for all
+        
+        # Use our team stats model to get offensive stats
+        offensive_stats = team_stats.get_team_offensive_stats(conference)
+        return jsonify(offensive_stats)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/team-defensive-stats', methods=['GET'])
+def get_team_defensive_stats():
+    """Get team defensive statistics with option to filter by conference"""
+    try:
+        # Get conference filter parameter (optional)
+        conference = request.args.get('conference', None)  # 'East', 'West', or None for all
+        
+        # Use our team stats model to get defensive stats
+        defensive_stats = team_stats.get_team_defensive_stats(conference)
+        return jsonify(defensive_stats)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

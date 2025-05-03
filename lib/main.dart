@@ -4,6 +4,8 @@ import 'package:game_changer_ai/screens/stats_page.dart';
 import 'package:game_changer_ai/screens/experiment_page.dart'; 
 import 'package:provider/provider.dart'; 
 import 'package:game_changer_ai/providers/theme_provider.dart'; 
+import 'package:game_changer_ai/providers/game_provider.dart'; 
+import 'package:game_changer_ai/providers/team_stats_provider.dart'; 
 import 'package:logging/logging.dart'; // Import logging
 
 void main() {
@@ -15,8 +17,12 @@ void main() {
   });
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => GameProvider()),
+        ChangeNotifierProvider(create: (_) => TeamStatsProvider()),
+      ],
       child: const MyApp(),
     ),
   );

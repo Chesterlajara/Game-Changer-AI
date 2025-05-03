@@ -28,6 +28,22 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
     });
   }
   
+  // Fetch team stats with the selected conference filter
+  void _fetchTeamStatsWithFilter() {
+    // Convert UI filter names to API parameter values
+    String conference;
+    if (_selectedConference == 'Eastern') {
+      conference = 'East';
+    } else if (_selectedConference == 'Western') {
+      conference = 'West';
+    } else {
+      conference = 'All';
+    }
+    
+    // Fetch team stats with the selected conference filter
+    Provider.of<TeamStatsProvider>(context, listen: false).fetchTeamStats(conference: conference);
+  }
+  
   @override
   void dispose() {
     _tabController.dispose();
@@ -82,6 +98,8 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
                       onChanged: (value) {
                         setState(() {
                           _selectedConference = value!;
+                          // Fetch team stats with the new conference filter
+                          _fetchTeamStatsWithFilter();
                         });
                       },
                     ),
@@ -194,19 +212,40 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
   }
   
   Widget _buildStandingsTab(TeamStatsProvider statsProvider, Color textColor) {
-    // This would normally use statsProvider.teamStats to build the standings table
-    // For now, we'll show a placeholder with sample data
-    
-    final teams = [
-      {'rank': 1, 'name': 'Celtics', 'wins': 64, 'losses': 18, 'pct': 0.780, 'streak': 'W4'},
-      {'rank': 2, 'name': 'Bucks', 'wins': 58, 'losses': 24, 'pct': 0.707, 'streak': 'W2'},
-      {'rank': 3, 'name': '76ers', 'wins': 54, 'losses': 28, 'pct': 0.659, 'streak': 'L1'},
-    ];
-    
+    // Use real data from the provider
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
+          // Conference filter info
+          if (statsProvider.currentConference != 'All')
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                '${statsProvider.currentConference} Conference',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+              ),
+            ),
+          
+          // Season info
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Season: ${statsProvider.season}',
+                  style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.7)),
+                ),
+                if (statsProvider.standingsDate.isNotEmpty)
+                  Text(
+                    'Updated: ${statsProvider.standingsDate}',
+                    style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.7)),
+                  ),
+              ],
+            ),
+          ),
+          
           // Table Header
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -225,31 +264,78 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
             ),
           ),
           
+          // Loading indicator or error message
+          if (statsProvider.isLoading)
+            Expanded(
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (statsProvider.error != null)
+            Expanded(
+              child: Center(
+                child: Text(
+                  'Error: ${statsProvider.error}',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            )
+          else if (statsProvider.teams.isEmpty)
+            Expanded(
+              child: Center(
+                child: Text(
+                  'No team data available',
+                  style: TextStyle(color: textColor),
+                ),
+              ),
+            )
           // Team Rows
-          Expanded(
-            child: ListView.builder(
-              itemCount: teams.length,
-              itemBuilder: (context, index) {
-                final team = teams[index];
-                return Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12.0),
-                  decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+          else
+            Expanded(
+              child: Column(
+                children: [
+                  // Team count info
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Text(
+                      'Showing ${statsProvider.teams.length} teams',
+                      style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.7)),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      SizedBox(width: 40, child: Text('${team['rank']}', style: TextStyle(color: textColor))),
-                      Expanded(child: Text('${team['name']}', style: TextStyle(fontWeight: FontWeight.w500, color: textColor))),
-                      SizedBox(width: 40, child: Text('${team['wins']}', style: TextStyle(color: textColor))),
-                      SizedBox(width: 40, child: Text('${team['losses']}', style: TextStyle(color: textColor))),
-                      SizedBox(width: 60, child: Text('${team['pct']}', style: TextStyle(color: textColor))),
-                      SizedBox(width: 60, child: Text('${team['streak']}', style: TextStyle(color: textColor))),
-                    ],
+                  // Scrollable list of teams
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: statsProvider.teams.length,
+                      itemBuilder: (context, index) {
+                        final team = statsProvider.teams[index];
+                        // Format streak display
+                        String streakDisplay = '';
+                        if (team['streak_type'] != null && team['streak'] != null) {
+                          streakDisplay = '${team['streak_type']}${team['streak']}';
+                        }
+                        
+                        return Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          decoration: BoxDecoration(
+                            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                          ),
+                          child: Row(
+                            children: [
+                              SizedBox(width: 40, child: Text('${team['rank']}', style: TextStyle(color: textColor))),
+                              Expanded(child: Text('${team['team_name']}', style: TextStyle(fontWeight: FontWeight.w500, color: textColor))),
+                              SizedBox(width: 40, child: Text('${team['wins']}', style: TextStyle(color: textColor))),
+                              SizedBox(width: 40, child: Text('${team['losses']}', style: TextStyle(color: textColor))),
+                              SizedBox(width: 60, child: Text('${team['win_pct'].toStringAsFixed(3)}', style: TextStyle(color: textColor))),
+                              SizedBox(width: 60, child: Text(streakDisplay, style: TextStyle(color: textColor))),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                );
-              },
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

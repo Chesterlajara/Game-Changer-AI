@@ -106,13 +106,22 @@ class ApiService {
     }
   }
   
-  // Get team statistics
-  static Future<Map<String, dynamic>> getTeamStats() async {
+  // Get team statistics with optional conference filter
+  static Future<Map<String, dynamic>> getTeamStats({String conference = ''}) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/team-standings'));
+      // Build URL with conference parameter if provided
+      String url = '$baseUrl/team-standings';
+      if (conference.isNotEmpty) {
+        url += '?conference=$conference';
+      }
+      
+      _log.info('Fetching team stats from: $url');
+      final response = await http.get(Uri.parse(url));
       
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final data = json.decode(response.body);
+        _log.info('Received team stats with ${data['standings']?.length ?? 0} teams');
+        return data;
       } else {
         _log.warning('Failed to load team stats: ${response.statusCode}');
         throw Exception('Failed to load team stats');

@@ -1,0 +1,20 @@
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore virtual environment
+venv/
+env/
+ENV/
+
+# Include the frontend directory
+!GameChanger-frontend/
+
+# Ignore Flutter/Dart build artifacts
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/ios/Pods/
+**/android/.gradle/

@@ -186,6 +186,78 @@ class ApiService {
     }
   }
   
+  // Get team offensive statistics with option to filter by conference
+  static Future<Map<String, dynamic>> getTeamOffensiveStats({String conference = '', String? timestamp}) async {
+    try {
+      // Build URL with parameters
+      String url = '$baseUrl/team-offensive-stats';
+      
+      // Create query parameters map
+      Map<String, String> queryParams = {};
+      if (conference.isNotEmpty) {
+        queryParams['conference'] = conference;
+      }
+      // Add timestamp to prevent caching if provided
+      if (timestamp != null) {
+        queryParams['t'] = timestamp;
+      }
+      
+      // Build URI with query parameters
+      final uri = Uri.parse(url).replace(queryParameters: queryParams);
+      
+      _log.info('Fetching team offensive stats from: $uri');
+      final response = await http.get(uri);
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _log.info('Received team offensive stats with ${data['offensive_stats']?.length ?? 0} teams');
+        return data;
+      } else {
+        _log.warning('Failed to load team offensive stats: ${response.statusCode}');
+        throw Exception('Failed to load team offensive stats');
+      }
+    } catch (e) {
+      _log.severe('Error fetching team offensive stats: $e');
+      throw Exception('Error fetching team offensive stats: $e');
+    }
+  }
+  
+  // Get team defensive statistics with option to filter by conference
+  static Future<Map<String, dynamic>> getTeamDefensiveStats({String conference = '', String? timestamp}) async {
+    try {
+      // Build URL with parameters
+      String url = '$baseUrl/team-defensive-stats';
+      
+      // Create query parameters map
+      Map<String, String> queryParams = {};
+      if (conference.isNotEmpty) {
+        queryParams['conference'] = conference;
+      }
+      // Add timestamp to prevent caching if provided
+      if (timestamp != null) {
+        queryParams['t'] = timestamp;
+      }
+      
+      // Build URI with query parameters
+      final uri = Uri.parse(url).replace(queryParameters: queryParams);
+      
+      _log.info('Fetching team defensive stats from: $uri');
+      final response = await http.get(uri);
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _log.info('Received team defensive stats with ${data['defensive_stats']?.length ?? 0} teams');
+        return data;
+      } else {
+        _log.warning('Failed to load team defensive stats: ${response.statusCode}');
+        throw Exception('Failed to load team defensive stats');
+      }
+    } catch (e) {
+      _log.severe('Error fetching team defensive stats: $e');
+      throw Exception('Error fetching team defensive stats: $e');
+    }
+  }
+  
   // Helper method to parse Game object from JSON
   static Game _parseGame(Map<String, dynamic> json) {
     // Log the JSON to debug

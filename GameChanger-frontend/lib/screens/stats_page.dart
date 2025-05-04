@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:game_changer_ai/providers/team_stats_provider.dart';
 import 'package:game_changer_ai/providers/theme_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
+import 'package:game_changer_ai/widgets/stat_radar_chart.dart';
+import 'package:game_changer_ai/widgets/league_leaders_section.dart';
 
 class StatsPage extends StatefulWidget {
   const StatsPage({super.key});
@@ -26,15 +29,45 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
   // Get current sort options based on selected filter
   List<String> get _currentSortOptions => _selectedFilter == 'Teams' ? _teamSortOptions : _playerSortOptions;
   
+  // Selected team for offense/defense tabs
+  String? _selectedTeam;
+  
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     
+    // Listen for tab changes to fetch appropriate data
+    _tabController.addListener(_handleTabChange);
+    
     // Fetch stats when the widget is first created
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchStatsWithFilters();
     });
+  }
+  
+  // Handle tab changes to fetch appropriate data
+  void _handleTabChange() {
+    if (!_tabController.indexIsChanging) return;
+    
+    final statsProvider = Provider.of<TeamStatsProvider>(context, listen: false);
+    
+    // Fetch appropriate data based on selected tab
+    switch (_tabController.index) {
+      case 0: // Standings tab
+        if (_selectedFilter == 'Teams') {
+          statsProvider.fetchTeamStats(conference: _selectedConference, sortBy: _selectedSortBy);
+        } else {
+          statsProvider.fetchPlayerStats(conference: _selectedConference, sortBy: _selectedSortBy);
+        }
+        break;
+      case 1: // Offense tab
+        statsProvider.fetchTeamOffensiveStats(conference: _selectedConference);
+        break;
+      case 2: // Defense tab
+        statsProvider.fetchTeamDefensiveStats(conference: _selectedConference);
+        break;
+    }
   }
   
   // Fetch stats with the selected filters
@@ -106,6 +139,7 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
   
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
   }
@@ -238,10 +272,10 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
               _buildStandingsTab(statsProvider, textColor),
               
               // Offense Tab
-              Center(child: Text('Offense Tab', style: TextStyle(color: textColor))),
+              _buildOffenseTab(statsProvider, textColor),
               
               // Defense Tab
-              Center(child: Text('Defense Tab', style: TextStyle(color: textColor))),
+              _buildDefenseTab(statsProvider, textColor),
             ],
           );
         },
@@ -396,9 +430,13 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
                   ),
                   // Scrollable list of teams or players
                   Expanded(
-                    child: statsProvider.showingPlayers
-                      ? _buildPlayersList(statsProvider, textColor)
-                      : _buildTeamsList(statsProvider, textColor),
+                    child: _tabController.index == 0 
+                      ? (statsProvider.showingPlayers
+                          ? _buildPlayersList(statsProvider, textColor)
+                          : _buildTeamsList(statsProvider, textColor))
+                      : _tabController.index == 1
+                          ? _buildOffenseTab(statsProvider, textColor)
+                          : _buildDefenseTab(statsProvider, textColor),
                   ),
                 ],
               ),
@@ -485,6 +523,274 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
           ),
         );
       },
+    );
+  }
+  
+  // Helper method to build the offense tab
+  Widget _buildOffenseTab(TeamStatsProvider statsProvider, Color textColor) {
+    // Fetch offensive stats if not already loaded
+    if (statsProvider.offensiveTeams.isEmpty && !statsProvider.isLoading) {
+      statsProvider.fetchTeamOffensiveStats(conference: _selectedConference);
+      return Center(child: CircularProgressIndicator());
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Team selection dropdown
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            child: _buildTeamDropdown(statsProvider, textColor),
+          ),
+          
+          // Team offensive stats display
+          if (_selectedTeam == null)
+            Expanded(
+              child: Center(
+                child: Text(
+                  'Select a team to view offensive statistics',
+                  style: TextStyle(color: textColor, fontSize: 16),
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // Radar chart for team offensive stats
+                    _buildOffensiveRadarChart(statsProvider, textColor),
+                    
+                    // League leaders sections
+                    ..._buildOffensiveLeadersSections(statsProvider, textColor),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+  
+  // Helper method to build the defense tab
+  Widget _buildDefenseTab(TeamStatsProvider statsProvider, Color textColor) {
+    // Fetch defensive stats if not already loaded
+    if (statsProvider.defensiveTeams.isEmpty && !statsProvider.isLoading) {
+      statsProvider.fetchTeamDefensiveStats(conference: _selectedConference);
+      return Center(child: CircularProgressIndicator());
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Team selection dropdown
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            child: _buildTeamDropdown(statsProvider, textColor),
+          ),
+          
+          // Team defensive stats display
+          if (_selectedTeam == null)
+            Expanded(
+              child: Center(
+                child: Text(
+                  'Select a team to view defensive statistics',
+                  style: TextStyle(color: textColor, fontSize: 16),
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // Radar chart for team defensive stats
+                    _buildDefensiveRadarChart(statsProvider, textColor),
+                    
+                    // League leaders sections
+                    ..._buildDefensiveLeadersSections(statsProvider, textColor),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+  
+  // Helper method to build team dropdown
+  Widget _buildTeamDropdown(TeamStatsProvider statsProvider, Color textColor) {
+    // Get list of teams for dropdown
+    List<String> teamNames = [];
+    
+    if (_tabController.index == 1) { // Offense tab
+      teamNames = statsProvider.offensiveTeams
+          .map<String>((team) => team['team_name'] as String)
+          .toList();
+    } else { // Defense tab
+      teamNames = statsProvider.defensiveTeams
+          .map<String>((team) => team['team_name'] as String)
+          .toList();
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedTeam,
+          hint: Text('Select Team', style: TextStyle(color: textColor.withOpacity(0.7))),
+          isExpanded: true,
+          icon: Icon(Icons.arrow_drop_down, color: textColor),
+          dropdownColor: Colors.grey.shade100,
+          items: teamNames.map((String team) {
+            return DropdownMenuItem<String>(
+              value: team,
+              child: Text(team, style: TextStyle(color: textColor)),
+            );
+          }).toList(),
+          onChanged: (String? newValue) {
+            setState(() {
+              _selectedTeam = newValue;
+              statsProvider.setSelectedTeam(newValue);
+            });
+          },
+        ),
+      ),
+    );
+  }
+  
+  // Helper method to build offensive radar chart
+  Widget _buildOffensiveRadarChart(TeamStatsProvider statsProvider, Color textColor) {
+    final offensiveStats = statsProvider.getSelectedTeamOffensiveStats();
+    
+    if (offensiveStats == null) {
+      return Center(child: Text('No offensive stats available', style: TextStyle(color: textColor)));
+    }
+    
+    return StatRadarChart(
+      stats: offensiveStats,
+      title: '${_selectedTeam} Offensive Profile',
+      chartColor: Colors.blue,
+      statLabels: [
+        'Points',
+        'FG%',
+        '3PT%',
+        'FT%',
+        'Assists',
+        'Off Reb',
+      ],
+      statKeys: [
+        'points_per_game',
+        'field_goal_pct',
+        'three_point_pct',
+        'free_throw_pct',
+        'assists_per_game',
+        'offensive_rebounds',
+      ],
+    );
+  }
+  
+  // Helper method to build offensive leaders sections
+  List<Widget> _buildOffensiveLeadersSections(TeamStatsProvider statsProvider, Color textColor) {
+    if (statsProvider.offensiveLeaders.isEmpty) {
+      return [Center(child: Text('No league leaders data available', style: TextStyle(color: textColor)))];
+    }
+    
+    return statsProvider.offensiveLeaders.map((leaderCategory) {
+      return LeagueLeadersSection(
+        title: leaderCategory['category'],
+        leaders: leaderCategory['leaders'],
+        statLabel: leaderCategory['stat_label'],
+        isTeam: true,
+      );
+    }).toList();
+  }
+  
+  // Helper method to build defensive radar chart
+  Widget _buildDefensiveRadarChart(TeamStatsProvider statsProvider, Color textColor) {
+    final defensiveStats = statsProvider.getSelectedTeamDefensiveStats();
+    
+    if (defensiveStats == null) {
+      return Center(child: Text('No defensive stats available', style: TextStyle(color: textColor)));
+    }
+    
+    // For defensive stats, we invert some values since lower is better
+    final invertedDefensiveStats = Map<String, dynamic>.from(defensiveStats);
+    // Invert opponent points (lower is better)
+    invertedDefensiveStats['inverted_opponent_points'] = 130 - (defensiveStats['opponent_points_per_game'] as num);
+    // Invert opponent FG% (lower is better)
+    invertedDefensiveStats['inverted_opponent_fg'] = 0.6 - (defensiveStats['opponent_field_goal_pct'] as num);
+    // Invert opponent 3PT% (lower is better)
+    invertedDefensiveStats['inverted_opponent_3pt'] = 0.5 - (defensiveStats['opponent_three_point_pct'] as num);
+    
+    return StatRadarChart(
+      stats: invertedDefensiveStats,
+      title: '${_selectedTeam} Defensive Profile',
+      chartColor: Colors.red,
+      statLabels: [
+        'Def Rating',
+        'Opp Points',
+        'Blocks',
+        'Steals',
+        'Opp FG%',
+        'Def Reb',
+      ],
+      statKeys: [
+        'defensive_rating',
+        'inverted_opponent_points',
+        'blocks_per_game',
+        'steals_per_game',
+        'inverted_opponent_fg',
+        'defensive_rebounds',
+      ],
+    );
+  }
+  
+  // Helper method to build defensive leaders sections
+  List<Widget> _buildDefensiveLeadersSections(TeamStatsProvider statsProvider, Color textColor) {
+    if (statsProvider.defensiveLeaders.isEmpty) {
+      return [Center(child: Text('No league leaders data available', style: TextStyle(color: textColor)))];
+    }
+    
+    return statsProvider.defensiveLeaders.map((leaderCategory) {
+      return LeagueLeadersSection(
+        title: leaderCategory['category'],
+        leaders: leaderCategory['leaders'],
+        statLabel: leaderCategory['stat_label'],
+        isTeam: true,
+      );
+    }).toList();
+  }
+  
+  // Helper method to build a stat card
+  Widget _buildStatCard(String title, String value, Color textColor) {
+    return Card(
+      elevation: 2.0,
+      margin: const EdgeInsets.only(bottom: 12.0),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.w500, color: textColor),
+            ),
+            Text(
+              value,
+              style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold, color: textColor),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

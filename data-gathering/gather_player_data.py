@@ -16,3 +16,44 @@ else:
 gamelog = leaguegamelog.LeagueGameLog(season='2024-25', season_type_all_star='Regular Season')
 games_df = gamelog.get_data_frames()[0]
 game_ids = games_df['GAME_ID'].unique()
+
+for game_id in game_ids:
+    if game_id in all_player_stats['GAME_ID'].values:
+        print(f"Skipping game {game_id} (already processed).")
+        continue
+
+    print(f"Fetching player stats for game {game_id}...")
+
+    max_retries = 3
+    retries = 0
+    success = False
+
+    while retries < max_retries:
+        try:
+            boxscore = boxscoretraditionalv2.BoxScoreTraditionalV2(game_id=game_id)
+            players_df = boxscore.get_data_frames()[0]
+            players_df['GAME_ID'] = game_id
+            players_df = players_df[~players_df.duplicated(subset=['GAME_ID', 'PLAYER_ID'], keep='first')]
+            all_player_stats = pd.concat([all_player_stats, players_df], ignore_index=True)
+
+            if len(all_player_stats) % 1000 == 0:
+                all_player_stats.to_csv(progress_file, index=False)
+                print(f"Progress saved at {len(all_player_stats)} rows.")
+
+            time.sleep(1)
+            success = True
+            break
+
+        except Exception as e:
+            retries += 1
+            print(f"Failed to fetch stats for game {game_id}, attempt {retries}/{max_retries}: {e}")
+            time.sleep(5)
+
+    if not success:
+        print(f"Game {game_id} failed after {max_retries} retries. Saving progress and exiting.")
+        all_player_stats.to_csv(progress_file, index=False)
+        exit()
+
+final_filename = 'nba_2024_2025_player_game_stats_complete.csv'
+all_player_stats.to_csv(final_filename, index=False)
+print(f"\n✅ Done! Saved player stats to '{final_filename}' with {len(all_player_stats)} rows.")

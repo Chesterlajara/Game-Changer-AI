@@ -68,6 +68,9 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
         statsProvider.fetchTeamDefensiveStats(conference: _selectedConference);
         break;
     }
+    
+    // Update the UI to show/hide filters based on the current tab
+    setState(() {});
   }
   
   // Fetch stats with the selected filters
@@ -168,58 +171,60 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
           preferredSize: const Size.fromHeight(100),
           child: Column(
             children: [
-              // Filters Row
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Teams/Players Filter
-                    _buildDropdownFilter(
-                      value: _selectedFilter,
-                      items: const ['Teams', 'Players'],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedFilter = value!;
-                          // Reset sort option to the first option in the new list
-                          _selectedSortBy = _currentSortOptions.first;
-                          // Fetch stats with the new filter
-                          _fetchStatsWithFilters();
-                        });
-                      },
-                    ),
-                    
-                    // Conference Filter
-                    _buildDropdownFilter(
-                      value: _selectedConference,
-                      items: const ['All', 'Eastern', 'Western'],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedConference = value!;
-                          // Fetch stats with the new conference filter
-                          _fetchStatsWithFilters();
-                        });
-                      },
-                    ),
-                    
-                    // Sort By Filter
-                    _buildDropdownFilter(
-                      value: _selectedSortBy,
-                      items: _currentSortOptions,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedSortBy = value!;
-                          // Fetch stats with the new sort option for both Teams and Players
-                          // Force refresh to ensure we get fresh data with the new sorting
-                          _fetchStatsWithFilters(forceRefresh: true);
-                        });
-                      },
-                    ),
-                  ],
+              // Only show filters on Standings tab
+              if (_tabController.index == 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Teams/Players Filter
+                      _buildDropdownFilter(
+                        value: _selectedFilter,
+                        items: const ['Teams', 'Players'],
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedFilter = value!;
+                            // Reset sort option to the first option in the new list
+                            _selectedSortBy = _currentSortOptions.first;
+                            // Fetch stats with the new filter
+                            _fetchStatsWithFilters();
+                          });
+                        },
+                      ),
+                      
+                      // Conference Filter
+                      _buildDropdownFilter(
+                        value: _selectedConference,
+                        items: const ['All', 'Eastern', 'Western'],
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedConference = value!;
+                            // Fetch stats with the new conference filter
+                            _fetchStatsWithFilters();
+                          });
+                        },
+                      ),
+                      
+                      // Sort By Filter
+                      _buildDropdownFilter(
+                        value: _selectedSortBy,
+                        items: _currentSortOptions,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedSortBy = value!;
+                            // Fetch stats with the new sort option for both Teams and Players
+                            // Force refresh to ensure we get fresh data with the new sorting
+                            _fetchStatsWithFilters(forceRefresh: true);
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               
-              const SizedBox(height: 16),
+              if (_tabController.index == 0)
+                const SizedBox(height: 16),
               
               // Tab Bar
               TabBar(

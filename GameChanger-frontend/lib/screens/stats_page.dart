@@ -34,13 +34,17 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
     String conference;
     if (_selectedConference == 'Eastern') {
       conference = 'East';
+      print('StatsPage: Selected Eastern Conference, sending East to API');
     } else if (_selectedConference == 'Western') {
       conference = 'West';
+      print('StatsPage: Selected Western Conference, sending West to API');
     } else {
-      conference = 'All';
+      conference = '';
+      print('StatsPage: Selected All Conferences, sending empty string to API');
     }
     
     // Fetch team stats with the selected conference filter
+    print('StatsPage: Calling fetchTeamStats with conference: "$conference"');
     Provider.of<TeamStatsProvider>(context, listen: false).fetchTeamStats(conference: conference);
   }
   
@@ -218,14 +222,15 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
       child: Column(
         children: [
           // Conference filter info
-          if (statsProvider.currentConference != 'All')
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Text(
-                '${statsProvider.currentConference} Conference',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
-              ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Text(
+              statsProvider.currentConference == 'All' 
+                ? 'All Teams' 
+                : '${statsProvider.currentConference} Conference',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
             ),
+          ),
           
           // Season info
           Padding(

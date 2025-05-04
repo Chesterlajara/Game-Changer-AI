@@ -242,8 +242,26 @@ def get_team_standings():
         # Get conference filter parameter (optional)
         conference = request.args.get('conference', None)  # 'East', 'West', or None for all
         
+        print(f"API received conference filter: {conference}")
+        print(f"Conference parameter type: {type(conference)}")
+        print(f"Conference parameter exact value: '{conference}'")
+        print(f"Request URL: {request.url}")
+        print(f"Request args: {request.args}")
+        
+        # Ensure conference is properly formatted
+        if conference == '' or conference == 'All':
+            conference = None
+        print(f"Conference parameter after formatting: '{conference}'")
+        print(f"Final conference value being sent to get_team_standings: {conference}")
+        
+        
         # Use our team stats model to get standings
         standings = team_stats.get_team_standings(conference)
+        
+        # Log the number of teams returned after filtering
+        if 'standings' in standings:
+            print(f"API returning {len(standings['standings'])} teams for conference: {conference}")
+        
         return jsonify(standings)
     except Exception as e:
         return jsonify({'error': str(e)}), 500

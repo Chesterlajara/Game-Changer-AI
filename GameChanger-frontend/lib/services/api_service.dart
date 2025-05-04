@@ -111,12 +111,19 @@ class ApiService {
     try {
       // Build URL with conference parameter if provided
       String url = '$baseUrl/team-standings';
+      
+      // Create query parameters map
+      Map<String, String> queryParams = {};
       if (conference.isNotEmpty) {
-        url += '?conference=$conference';
+        queryParams['conference'] = conference;
       }
       
-      _log.info('Fetching team stats from: $url');
-      final response = await http.get(Uri.parse(url));
+      // Build URI with query parameters
+      final uri = Uri.parse(url).replace(queryParameters: queryParams);
+      
+      _log.info('Fetching team stats from: $uri');
+      _log.info('Conference parameter value: "$conference"');
+      final response = await http.get(uri);
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

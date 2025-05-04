@@ -43,17 +43,11 @@ class TeamStatsProvider extends ChangeNotifier {
     notifyListeners();
     
     try {
-      // Convert UI filter names to API parameter values
-      String apiConference;
-      if (conference == 'Eastern') {
-        apiConference = 'East';
-      } else if (conference == 'Western') {
-        apiConference = 'West';
-      } else {
-        apiConference = ''; // All conferences
-      }
+      // Pass the conference parameter directly to the API service
+      // The StatsPage has already converted 'Eastern' to 'East' and 'Western' to 'West'
+      _log.info('TeamStatsProvider: Passing conference parameter directly: "$conference"');
       
-      final stats = await ApiService.getTeamStats(conference: apiConference);
+      final stats = await ApiService.getTeamStats(conference: conference);
       _teamStats = stats;
       _log.info('Received ${teams.length} teams for $conference conference');
       _isLoading = false;

@@ -139,6 +139,42 @@ class ApiService {
     }
   }
   
+  // Get player statistics with optional conference filter and stat category
+  static Future<Map<String, dynamic>> getPlayerStats({String conference = '', String statCategory = 'PTS'}) async {
+    try {
+      // Build URL with parameters
+      String url = '$baseUrl/player-standings';
+      
+      // Create query parameters map
+      Map<String, String> queryParams = {};
+      if (conference.isNotEmpty) {
+        queryParams['conference'] = conference;
+      }
+      if (statCategory.isNotEmpty) {
+        queryParams['stat_category'] = statCategory;
+      }
+      
+      // Build URI with query parameters
+      final uri = Uri.parse(url).replace(queryParameters: queryParams);
+      
+      _log.info('Fetching player stats from: $uri');
+      _log.info('Conference parameter value: "$conference", stat category: "$statCategory"');
+      final response = await http.get(uri);
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _log.info('Received player stats with ${data['standings']?.length ?? 0} players');
+        return data;
+      } else {
+        _log.warning('Failed to load player stats: ${response.statusCode}');
+        throw Exception('Failed to load player stats');
+      }
+    } catch (e) {
+      _log.severe('Error fetching player stats: $e');
+      throw Exception('Error fetching player stats: $e');
+    }
+  }
+  
   // Helper method to parse Game object from JSON
   static Game _parseGame(Map<String, dynamic> json) {
     // Log the JSON to debug

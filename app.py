@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from models.game_model import GameModel
 import json
 import pandas as pd
 import numpy as np
@@ -9,14 +10,17 @@ import datetime
 from models.prediction import PredictionModel
 from models.game_analysis import GameAnalysis
 from models.team_stats import TeamStats
+from models.player_stats import PlayerStats
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Flutter frontend
 
 # Initialize models
+game_model = GameModel()
 prediction_model = PredictionModel()
 game_analysis = GameAnalysis()
 team_stats = TeamStats()
+player_stats = PlayerStats()
 
 # API Routes for Flutter Frontend
 @app.route('/api/games', methods=['GET'])
@@ -261,6 +265,34 @@ def get_team_standings():
         # Log the number of teams returned after filtering
         if 'standings' in standings:
             print(f"API returning {len(standings['standings'])} teams for conference: {conference}")
+        
+        return jsonify(standings)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/player-standings', methods=['GET'])
+def get_player_standings():
+    """Get player standings with option to filter by conference"""
+    try:
+        # Get conference filter parameter (optional)
+        conference = request.args.get('conference', None)  # 'East', 'West', or None for all
+        stat_category = request.args.get('stat_category', 'PTS')  # Default to points
+        
+        print(f"API received player standings request - conference: {conference}, stat_category: {stat_category}")
+        print(f"Request URL: {request.url}")
+        print(f"Request args: {request.args}")
+        
+        # Ensure conference is properly formatted
+        if conference == '' or conference == 'All':
+            conference = None
+        print(f"Conference parameter after formatting: '{conference}'")
+        
+        # Use our player stats model to get standings
+        standings = player_stats.get_player_standings(conference, stat_category)
+        
+        # Log the number of players returned after filtering
+        if 'standings' in standings:
+            print(f"API returning {len(standings['standings'])} players for conference: {conference}")
         
         return jsonify(standings)
     except Exception as e:

@@ -17,6 +17,15 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
   String _selectedConference = 'All'; // All, Eastern, Western
   String _selectedSortBy = 'Win %'; // Win %, Points, etc.
   
+  // Sort options for teams
+  final List<String> _teamSortOptions = ['Win %', 'Point Differential', 'Home Record', 'Away Record'];
+  
+  // Sort options for players
+  final List<String> _playerSortOptions = ['Points', 'Rebounds', 'Assists', 'Steals', 'Blocks'];
+  
+  // Get current sort options based on selected filter
+  List<String> get _currentSortOptions => _selectedFilter == 'Teams' ? _teamSortOptions : _playerSortOptions;
+  
   @override
   void initState() {
     super.initState();
@@ -29,7 +38,7 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
   }
   
   // Fetch stats with the selected filters
-  void _fetchStatsWithFilters() {
+  void _fetchStatsWithFilters({bool forceRefresh = false}) {
     // Convert UI filter names to API parameter values
     String conference;
     if (_selectedConference == 'Eastern') {
@@ -45,19 +54,53 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
     
     // Convert sort by to stat category for player stats
     String statCategory = 'PTS'; // Default to points
-    if (_selectedSortBy == 'Rebounds') {
-      statCategory = 'REB';
-    } else if (_selectedSortBy == 'Assists') {
-      statCategory = 'AST';
+    
+    // Handle player sort options
+    if (_selectedFilter == 'Players') {
+      switch (_selectedSortBy) {
+        case 'Points':
+          statCategory = 'PTS';
+          break;
+        case 'Rebounds':
+          statCategory = 'REB';
+          break;
+        case 'Assists':
+          statCategory = 'AST';
+          break;
+        case 'Steals':
+          statCategory = 'STL';
+          break;
+        case 'Blocks':
+          statCategory = 'BLK';
+          break;
+        default:
+          statCategory = 'PTS';
+      }
+    }
+    
+    // For teams, we'll use the sort option to determine how to sort the data
+    // This would be handled on the frontend since we're not implementing
+    // all these sort options in the backend yet
+    String teamSortOption = '';
+    if (_selectedFilter == 'Teams') {
+      teamSortOption = _selectedSortBy;
     }
     
     // Fetch stats based on selected filter (Teams or Players)
     if (_selectedFilter == 'Teams') {
-      print('StatsPage: Fetching team stats with conference: "$conference"');
-      Provider.of<TeamStatsProvider>(context, listen: false).fetchTeamStats(conference: conference);
+      print('StatsPage: Fetching team stats with conference: "$conference", sort by: "$_selectedSortBy", forceRefresh: $forceRefresh');
+      Provider.of<TeamStatsProvider>(context, listen: false).fetchTeamStats(
+        conference: conference,
+        sortBy: _selectedSortBy,
+        forceRefresh: forceRefresh
+      );
     } else {
-      print('StatsPage: Fetching player stats with conference: "$conference", stat category: "$statCategory"');
-      Provider.of<TeamStatsProvider>(context, listen: false).fetchPlayerStats(conference: conference, statCategory: statCategory);
+      print('StatsPage: Fetching player stats with conference: "$conference", sort by: "$_selectedSortBy", forceRefresh: $forceRefresh');
+      Provider.of<TeamStatsProvider>(context, listen: false).fetchPlayerStats(
+        conference: conference,
+        sortBy: _selectedSortBy,
+        forceRefresh: forceRefresh
+      );
     }
   }
   
@@ -104,6 +147,8 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
                       onChanged: (value) {
                         setState(() {
                           _selectedFilter = value!;
+                          // Reset sort option to the first option in the new list
+                          _selectedSortBy = _currentSortOptions.first;
                           // Fetch stats with the new filter
                           _fetchStatsWithFilters();
                         });
@@ -126,14 +171,13 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
                     // Sort By Filter
                     _buildDropdownFilter(
                       value: _selectedSortBy,
-                      items: const ['Win %', 'Points', 'Rebounds', 'Assists'],
+                      items: _currentSortOptions,
                       onChanged: (value) {
                         setState(() {
                           _selectedSortBy = value!;
-                          // Only refresh if showing players, as sort by affects player stats
-                          if (_selectedFilter == 'Players') {
-                            _fetchStatsWithFilters();
-                          }
+                          // Fetch stats with the new sort option for both Teams and Players
+                          // Force refresh to ensure we get fresh data with the new sorting
+                          _fetchStatsWithFilters(forceRefresh: true);
                         });
                       },
                     ),
@@ -294,7 +338,8 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
                     Expanded(child: Text('Team', style: TextStyle(fontWeight: FontWeight.bold, color: textColor))),
                     SizedBox(width: 40, child: Text('W', style: TextStyle(fontWeight: FontWeight.bold, color: textColor))),
                     SizedBox(width: 40, child: Text('L', style: TextStyle(fontWeight: FontWeight.bold, color: textColor))),
-                    SizedBox(width: 60, child: Text('Win %', style: TextStyle(fontWeight: FontWeight.bold, color: textColor))),
+                    // Dynamic column based on selected sort option
+                    SizedBox(width: 80, child: Text(_selectedSortBy, style: TextStyle(fontWeight: FontWeight.bold, color: textColor))),
                     SizedBox(width: 60, child: Text('Streak', style: TextStyle(fontWeight: FontWeight.bold, color: textColor))),
                   ],
                 ),
@@ -375,6 +420,28 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
           streakDisplay = '${team['streak_type']}${team['streak']}';
         }
         
+        // Get the value to display based on the selected sort option
+        String sortValueDisplay = '';
+        switch (_selectedSortBy) {
+          case 'Win %':
+            sortValueDisplay = team['win_pct'].toStringAsFixed(3);
+            break;
+          case 'Point Differential':
+            // Format point differential with sign and 1 decimal place
+            double pointDiff = team['point_diff'] ?? 0.0;
+            String sign = pointDiff > 0 ? '+' : '';
+            sortValueDisplay = '$sign${pointDiff.toStringAsFixed(1)}';
+            break;
+          case 'Home Record':
+            sortValueDisplay = team['home_record'] ?? 'N/A';
+            break;
+          case 'Away Record':
+            sortValueDisplay = team['road_record'] ?? 'N/A';
+            break;
+          default:
+            sortValueDisplay = team['win_pct'].toStringAsFixed(3);
+        }
+        
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 12.0),
           decoration: BoxDecoration(
@@ -386,7 +453,7 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
               Expanded(child: Text('${team['team_name']}', style: TextStyle(fontWeight: FontWeight.w500, color: textColor))),
               SizedBox(width: 40, child: Text('${team['wins']}', style: TextStyle(color: textColor))),
               SizedBox(width: 40, child: Text('${team['losses']}', style: TextStyle(color: textColor))),
-              SizedBox(width: 60, child: Text('${team['win_pct'].toStringAsFixed(3)}', style: TextStyle(color: textColor))),
+              SizedBox(width: 80, child: Text(sortValueDisplay, style: TextStyle(color: textColor))),
               SizedBox(width: 60, child: Text(streakDisplay, style: TextStyle(color: textColor))),
             ],
           ),

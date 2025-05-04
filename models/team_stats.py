@@ -10,7 +10,7 @@ class TeamStats:
     def __init__(self):
         pass
     
-    def get_team_standings(self, conference=None):
+    def get_team_standings(self, conference=None, sort_by='Win %'):
         """
         Get current NBA team standings with option to filter by conference
         
@@ -77,6 +77,19 @@ class TeamStats:
                     except Exception:
                         return default
                 
+                # Calculate additional metrics for sorting
+                home_wins = safe_get('HOME_WINS', 0, int)
+                home_losses = safe_get('HOME_LOSSES', 0, int)
+                road_wins = safe_get('ROAD_WINS', 0, int)
+                road_losses = safe_get('ROAD_LOSSES', 0, int)
+                
+                # Calculate home and away win percentages
+                home_win_pct = home_wins / (home_wins + home_losses) if (home_wins + home_losses) > 0 else 0.0
+                away_win_pct = road_wins / (road_wins + road_losses) if (road_wins + road_losses) > 0 else 0.0
+                
+                # Calculate point differential
+                point_diff = safe_get('PLUS_MINUS', 0.0, float)
+                
                 # Create team dictionary with all required fields
                 team = {
                     'rank': safe_get('PlayoffRank', 0, int),
@@ -90,10 +103,18 @@ class TeamStats:
                     'win_pct': safe_get('WinPCT', 0.0, float),
                     'streak': streak_value,
                     'streak_type': streak_type,
-                    'home_record': f"{safe_get('HOME_WINS', 0, int)}-{safe_get('HOME_LOSSES', 0, int)}",
-                    'road_record': f"{safe_get('ROAD_WINS', 0, int)}-{safe_get('ROAD_LOSSES', 0, int)}",
+                    'home_record': f"{home_wins}-{home_losses}",
+                    'road_record': f"{road_wins}-{road_losses}",
                     'last_ten': f"{safe_get('L10_WINS', 0, int)}-{safe_get('L10_LOSSES', 0, int)}",
-                    'logo_url': f"https://cdn.nba.com/logos/nba/{safe_get('TeamID', '0', str)}/global/L/logo.svg"
+                    'logo_url': f"https://cdn.nba.com/logos/nba/{safe_get('TeamID', '0', str)}/global/L/logo.svg",
+                    # Additional fields for sorting
+                    'point_diff': point_diff,
+                    'home_win_pct': home_win_pct,
+                    'away_win_pct': away_win_pct,
+                    'home_wins': home_wins,
+                    'home_losses': home_losses,
+                    'road_wins': road_wins,
+                    'road_losses': road_losses
                 }
                 teams.append(team)
             
@@ -119,18 +140,31 @@ class TeamStats:
             # Filter by conference if specified
             if conference == 'East':
                 teams = [team for team in teams if team['conference'] == 'East']
-                # Sort by conference rank
-                teams.sort(key=lambda x: x['rank'])
             elif conference == 'West':
                 teams = [team for team in teams if team['conference'] == 'West']
-                # Sort by conference rank
-                teams.sort(key=lambda x: x['rank'])
-            else:
-                # Sort by overall win percentage for 'All' view
+            
+            # Apply sorting based on the selected sort option
+            print(f"Sorting teams by: {sort_by}")
+            
+            if sort_by == 'Win %':
+                # Sort by win percentage (default)
                 teams.sort(key=lambda x: x['win_pct'], reverse=True)
-                # Reassign ranks based on overall standing
-                for i, team in enumerate(teams):
-                    team['rank'] = i + 1
+            elif sort_by == 'Point Differential':
+                # Sort by point differential
+                teams.sort(key=lambda x: x['point_diff'], reverse=True)
+            elif sort_by == 'Home Record':
+                # Sort by home win percentage
+                teams.sort(key=lambda x: x['home_win_pct'] if 'home_win_pct' in x else 0.0, reverse=True)
+            elif sort_by == 'Away Record':
+                # Sort by away win percentage
+                teams.sort(key=lambda x: x['away_win_pct'] if 'away_win_pct' in x else 0.0, reverse=True)
+            else:
+                # Default to win percentage if sort option not recognized
+                teams.sort(key=lambda x: x['win_pct'], reverse=True)
+            
+            # Reassign ranks based on the new sorting
+            for i, team in enumerate(teams):
+                team['rank'] = i + 1
             
             print(f"Returning {len(teams)} teams for {conference if conference else 'All'} conference")
             
@@ -231,17 +265,18 @@ class TeamStats:
             print(f"Error getting defensive stats: {e}")
             return None
             
-    def _get_mock_team_standings(self, conference=None):
+    def _get_mock_team_standings(self, conference=None, sort_by='Win %'):
         """
         Provide mock team standings data when the NBA API fails
         
         Args:
             conference: Optional filter for conference ('East', 'West', or None for all)
+            sort_by: Criteria to sort teams by ('Win %', 'Point Differential', 'Home Record', 'Away Record')
             
         Returns:
             Dictionary with mock team standings data
         """
-        print(f"Using mock data for {conference if conference else 'All'} conference")
+        print(f"Using mock data for {conference if conference else 'All'} conference, sorted by: {sort_by}")
         
         # Create mock team data based on the Statistics Page requirements
         mock_teams = [
@@ -357,11 +392,68 @@ class TeamStats:
         elif conference == 'West':
             filtered_teams = [team for team in mock_teams if team['conference'] == 'West']
         else:
-            # For 'All', sort by win percentage
-            filtered_teams = sorted(mock_teams, key=lambda x: x['win_pct'], reverse=True)
-            # Reassign ranks for overall standings
-            for i, team in enumerate(filtered_teams):
-                team['rank'] = i + 1
+            filtered_teams = mock_teams.copy()
+        
+        # Add derived fields for sorting
+        for team in filtered_teams:
+            # Extract home and away records
+            home_parts = team['home_record'].split('-')
+            away_parts = team['road_record'].split('-')
+            
+            # Calculate home and away win percentages
+            home_wins = int(home_parts[0])
+            home_losses = int(home_parts[1])
+            away_wins = int(away_parts[0])
+            away_losses = int(away_parts[1])
+            
+            home_win_pct = home_wins / (home_wins + home_losses) if (home_wins + home_losses) > 0 else 0.0
+            away_win_pct = away_wins / (away_wins + away_losses) if (away_wins + away_losses) > 0 else 0.0
+            
+            # Add point differential (mock values)
+            point_diff = round((team['win_pct'] - 0.5) * 20, 1)  # Simulate point diff based on win %
+            
+            # Add these fields to the team dict
+            team['point_diff'] = point_diff
+            team['home_win_pct'] = home_win_pct
+            team['away_win_pct'] = away_win_pct
+        
+        # Apply sorting based on the selected sort option
+        print(f"Sorting mock teams by: {sort_by}")
+        
+        # Print the first few teams before sorting
+        print("Teams before sorting:")
+        for i, team in enumerate(filtered_teams[:3]):
+            print(f"{i+1}. {team['team_name']} - Win%: {team['win_pct']}, PD: {team['point_diff']}, Home: {team['home_win_pct']}, Away: {team['away_win_pct']}")
+        
+        if sort_by == 'Win %':
+            # Sort by win percentage (default)
+            print("Sorting by win percentage")
+            filtered_teams.sort(key=lambda x: x['win_pct'], reverse=True)
+        elif sort_by == 'Point Differential':
+            # Sort by point differential
+            print("Sorting by point differential")
+            filtered_teams.sort(key=lambda x: x['point_diff'], reverse=True)
+        elif sort_by == 'Home Record':
+            # Sort by home win percentage
+            print("Sorting by home win percentage")
+            filtered_teams.sort(key=lambda x: x['home_win_pct'], reverse=True)
+        elif sort_by == 'Away Record':
+            # Sort by away win percentage
+            print("Sorting by away win percentage")
+            filtered_teams.sort(key=lambda x: x['away_win_pct'], reverse=True)
+        else:
+            # Default to win percentage if sort option not recognized
+            print(f"Unrecognized sort option: {sort_by}, defaulting to win percentage")
+            filtered_teams.sort(key=lambda x: x['win_pct'], reverse=True)
+            
+        # Print the first few teams after sorting
+        print("Teams after sorting:")
+        for i, team in enumerate(filtered_teams[:3]):
+            print(f"{i+1}. {team['team_name']} - Win%: {team['win_pct']}, PD: {team['point_diff']}, Home: {team['home_win_pct']}, Away: {team['away_win_pct']}")
+        
+        # Reassign ranks based on the new sorting
+        for i, team in enumerate(filtered_teams):
+            team['rank'] = i + 1
         
         return {
             'standings': filtered_teams,

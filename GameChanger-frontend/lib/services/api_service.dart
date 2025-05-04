@@ -106,10 +106,10 @@ class ApiService {
     }
   }
   
-  // Get team statistics with optional conference filter
-  static Future<Map<String, dynamic>> getTeamStats({String conference = ''}) async {
+  // Get team statistics with optional conference filter and sort option
+  static Future<Map<String, dynamic>> getTeamStats({String conference = '', String sortBy = 'Win %', String? timestamp}) async {
     try {
-      // Build URL with conference parameter if provided
+      // Build URL with parameters
       String url = '$baseUrl/team-standings';
       
       // Create query parameters map
@@ -117,12 +117,19 @@ class ApiService {
       if (conference.isNotEmpty) {
         queryParams['conference'] = conference;
       }
+      if (sortBy.isNotEmpty) {
+        queryParams['sort_by'] = sortBy;
+      }
+      // Add timestamp to prevent caching if provided
+      if (timestamp != null) {
+        queryParams['t'] = timestamp;
+      }
       
       // Build URI with query parameters
       final uri = Uri.parse(url).replace(queryParameters: queryParams);
       
       _log.info('Fetching team stats from: $uri');
-      _log.info('Conference parameter value: "$conference"');
+      _log.info('Conference parameter value: "$conference", sort by: "$sortBy", timestamp: $timestamp');
       final response = await http.get(uri);
       
       if (response.statusCode == 200) {
@@ -139,8 +146,8 @@ class ApiService {
     }
   }
   
-  // Get player statistics with optional conference filter and stat category
-  static Future<Map<String, dynamic>> getPlayerStats({String conference = '', String statCategory = 'PTS'}) async {
+  // Get player statistics with optional conference filter and sort option
+  static Future<Map<String, dynamic>> getPlayerStats({String conference = '', String sortBy = 'Points', String? timestamp}) async {
     try {
       // Build URL with parameters
       String url = '$baseUrl/player-standings';
@@ -150,15 +157,19 @@ class ApiService {
       if (conference.isNotEmpty) {
         queryParams['conference'] = conference;
       }
-      if (statCategory.isNotEmpty) {
-        queryParams['stat_category'] = statCategory;
+      if (sortBy.isNotEmpty) {
+        queryParams['sort_by'] = sortBy;
+      }
+      // Add timestamp to prevent caching if provided
+      if (timestamp != null) {
+        queryParams['t'] = timestamp;
       }
       
       // Build URI with query parameters
       final uri = Uri.parse(url).replace(queryParameters: queryParams);
       
       _log.info('Fetching player stats from: $uri');
-      _log.info('Conference parameter value: "$conference", stat category: "$statCategory"');
+      _log.info('Conference parameter value: "$conference", sort by: "$sortBy", timestamp: $timestamp');
       final response = await http.get(uri);
       
       if (response.statusCode == 200) {

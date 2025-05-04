@@ -241,14 +241,16 @@ def get_game_analysis(game_id):
 
 @app.route('/api/team-standings', methods=['GET'])
 def get_team_standings():
-    """Get team standings with option to filter by conference"""
+    """Get team standings with option to filter by conference and sort by different criteria"""
     try:
-        # Get conference filter parameter (optional)
+        # Get filter parameters (optional)
         conference = request.args.get('conference', None)  # 'East', 'West', or None for all
+        sort_by = request.args.get('sort_by', 'Win %')  # Default to Win %
         
-        print(f"API received conference filter: {conference}")
+        print(f"API received conference filter: {conference}, sort_by: {sort_by}")
         print(f"Conference parameter type: {type(conference)}")
         print(f"Conference parameter exact value: '{conference}'")
+        print(f"Sort by parameter exact value: '{sort_by}'")
         print(f"Request URL: {request.url}")
         print(f"Request args: {request.args}")
         
@@ -256,15 +258,14 @@ def get_team_standings():
         if conference == '' or conference == 'All':
             conference = None
         print(f"Conference parameter after formatting: '{conference}'")
-        print(f"Final conference value being sent to get_team_standings: {conference}")
+        print(f"Final values being sent to get_team_standings: conference={conference}, sort_by={sort_by}")
         
-        
-        # Use our team stats model to get standings
-        standings = team_stats.get_team_standings(conference)
+        # Use our team stats model to get standings with sorting
+        standings = team_stats.get_team_standings(conference, sort_by)
         
         # Log the number of teams returned after filtering
         if 'standings' in standings:
-            print(f"API returning {len(standings['standings'])} teams for conference: {conference}")
+            print(f"API returning {len(standings['standings'])} teams for conference: {conference}, sorted by: {sort_by}")
         
         return jsonify(standings)
     except Exception as e:
@@ -272,13 +273,29 @@ def get_team_standings():
 
 @app.route('/api/player-standings', methods=['GET'])
 def get_player_standings():
-    """Get player standings with option to filter by conference"""
+    """Get player standings with option to filter by conference and sort by different stat categories"""
     try:
-        # Get conference filter parameter (optional)
+        # Get filter parameters (optional)
         conference = request.args.get('conference', None)  # 'East', 'West', or None for all
-        stat_category = request.args.get('stat_category', 'PTS')  # Default to points
+        sort_by = request.args.get('sort_by', 'Points')  # UI display name (Points, Rebounds, etc.)
         
-        print(f"API received player standings request - conference: {conference}, stat_category: {stat_category}")
+        # Convert UI sort_by to API stat_category
+        stat_category = 'PTS'  # Default to points
+        if sort_by == 'Rebounds':
+            stat_category = 'REB'
+        elif sort_by == 'Assists':
+            stat_category = 'AST'
+        elif sort_by == 'Steals':
+            stat_category = 'STL'
+        elif sort_by == 'Blocks':
+            stat_category = 'BLK'
+        
+        # Also check for direct stat_category parameter (for backward compatibility)
+        direct_stat = request.args.get('stat_category', None)
+        if direct_stat:
+            stat_category = direct_stat
+        
+        print(f"API received player standings request - conference: {conference}, sort_by: {sort_by}, stat_category: {stat_category}")
         print(f"Request URL: {request.url}")
         print(f"Request args: {request.args}")
         
@@ -286,13 +303,14 @@ def get_player_standings():
         if conference == '' or conference == 'All':
             conference = None
         print(f"Conference parameter after formatting: '{conference}'")
+        print(f"Final values being sent to get_player_standings: conference={conference}, stat_category={stat_category}")
         
         # Use our player stats model to get standings
         standings = player_stats.get_player_standings(conference, stat_category)
         
         # Log the number of players returned after filtering
         if 'standings' in standings:
-            print(f"API returning {len(standings['standings'])} players for conference: {conference}")
+            print(f"API returning {len(standings['standings'])} players for conference: {conference}, sorted by: {stat_category}")
         
         return jsonify(standings)
     except Exception as e:

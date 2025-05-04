@@ -12,6 +12,7 @@ class TeamStatsProvider extends ChangeNotifier {
   String _currentConference = 'All'; // Track current conference filter
   String _currentStatCategory = 'PTS'; // Track current stat category filter
   bool _showingPlayers = false; // Track whether showing teams or players
+  String _selectedSortBy = 'Win %'; // Default sort option
   
   // Getters
   Map<String, dynamic> get teamStats => _teamStats;
@@ -57,9 +58,16 @@ class TeamStatsProvider extends ChangeNotifier {
       (_teamStats['standings_date'] ?? '');
   }
   
-  // Fetch team statistics from the API with optional conference filter
-  Future<void> fetchTeamStats({String conference = 'All'}) async {
-    _log.info('Fetching team stats with conference filter: $conference');
+  // Fetch team statistics from the API with optional conference filter and sort option
+  Future<void> fetchTeamStats({String conference = 'All', String sortBy = '', bool forceRefresh = false}) async {
+    // If no sort option provided, use the current one
+    if (sortBy.isEmpty) {
+      sortBy = _selectedSortBy;
+    } else {
+      _selectedSortBy = sortBy;
+    }
+    
+    _log.info('Fetching team stats with conference filter: $conference, sort by: $sortBy, forceRefresh: $forceRefresh');
     _isLoading = true;
     _error = null;
     _currentConference = conference;
@@ -67,7 +75,12 @@ class TeamStatsProvider extends ChangeNotifier {
     notifyListeners();
     
     try {
-      final stats = await ApiService.getTeamStats(conference: conference);
+      // Add a timestamp parameter to prevent caching when forceRefresh is true
+      final stats = await ApiService.getTeamStats(
+        conference: conference, 
+        sortBy: sortBy,
+        timestamp: forceRefresh ? DateTime.now().millisecondsSinceEpoch.toString() : null
+      );
       _log.info('Received team stats: ${stats.keys}');
       _log.info('Number of teams: ${stats['standings']?.length ?? 0}');
       _teamStats = stats;
@@ -81,18 +94,30 @@ class TeamStatsProvider extends ChangeNotifier {
     }
   }
   
-  // Fetch player statistics from the API with optional conference filter
-  Future<void> fetchPlayerStats({String conference = 'All', String statCategory = 'PTS'}) async {
-    _log.info('Fetching player stats with conference filter: $conference, stat category: $statCategory');
+  // Fetch player statistics from the API with optional conference filter and sort option
+  Future<void> fetchPlayerStats({String conference = 'All', String sortBy = '', bool forceRefresh = false}) async {
+    // If no sort option provided, use the current one
+    if (sortBy.isEmpty) {
+      sortBy = _selectedSortBy;
+    } else {
+      _selectedSortBy = sortBy;
+    }
+    
+    _log.info('Fetching player stats with conference filter: $conference, sort by: $sortBy, forceRefresh: $forceRefresh');
     _isLoading = true;
     _error = null;
     _currentConference = conference;
-    _currentStatCategory = statCategory;
+    _currentStatCategory = sortBy;
     _showingPlayers = true;
     notifyListeners();
     
     try {
-      final stats = await ApiService.getPlayerStats(conference: conference, statCategory: statCategory);
+      // Add a timestamp parameter to prevent caching when forceRefresh is true
+      final stats = await ApiService.getPlayerStats(
+        conference: conference, 
+        sortBy: sortBy,
+        timestamp: forceRefresh ? DateTime.now().millisecondsSinceEpoch.toString() : null
+      );
       _log.info('Received player stats: ${stats.keys}');
       _log.info('Number of players: ${stats['standings']?.length ?? 0}');
       _playerStats = stats;
@@ -111,7 +136,7 @@ class TeamStatsProvider extends ChangeNotifier {
     if (_showingPlayers != showPlayers) {
       _showingPlayers = showPlayers;
       if (showPlayers) {
-        fetchPlayerStats(conference: _currentConference, statCategory: _currentStatCategory);
+        fetchPlayerStats(conference: _currentConference, sortBy: _currentStatCategory);
       } else {
         fetchTeamStats(conference: _currentConference);
       }

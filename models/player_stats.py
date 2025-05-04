@@ -53,6 +53,21 @@ class PlayerStats:
                 team_id = row['TEAM_ID'] if 'TEAM_ID' in row else None
                 player_conference = team_to_conference.get(team_id, "Unknown")
                 
+                # Get the value for the selected stat category
+                stat_value = 0.0
+                if stat_category in row:
+                    stat_value = float(row[stat_category]) if not pd.isna(row[stat_category]) else 0.0
+                elif stat_category == 'PTS' and 'PTS' in row:
+                    stat_value = float(row['PTS']) if not pd.isna(row['PTS']) else 0.0
+                elif stat_category == 'REB' and 'REB' in row:
+                    stat_value = float(row['REB']) if not pd.isna(row['REB']) else 0.0
+                elif stat_category == 'AST' and 'AST' in row:
+                    stat_value = float(row['AST']) if not pd.isna(row['AST']) else 0.0
+                elif stat_category == 'STL' and 'STL' in row:
+                    stat_value = float(row['STL']) if not pd.isna(row['STL']) else 0.0
+                elif stat_category == 'BLK' and 'BLK' in row:
+                    stat_value = float(row['BLK']) if not pd.isna(row['BLK']) else 0.0
+                
                 # Create player dictionary with all required fields
                 player = {
                     'rank': int(row['RANK']) if 'RANK' in row else 0,
@@ -72,7 +87,10 @@ class PlayerStats:
                     'three_point_pct': float(row['FG3_PCT']) if 'FG3_PCT' in row else 0.0,
                     'free_throw_pct': float(row['FT_PCT']) if 'FT_PCT' in row else 0.0,
                     'efficiency': float(row['EFF']) if 'EFF' in row else 0.0,
-                    'player_image_url': f"https://cdn.nba.com/headshots/nba/latest/1040x760/{row['PLAYER_ID']}.png" if 'PLAYER_ID' in row else ''
+                    'player_image_url': f"https://cdn.nba.com/headshots/nba/latest/1040x760/{row['PLAYER_ID']}.png" if 'PLAYER_ID' in row else '',
+                    # Add the stat value for the selected category
+                    'stat_value': stat_value,
+                    'stat_category': stat_category
                 }
                 players.append(player)
             

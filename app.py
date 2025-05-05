@@ -5,6 +5,7 @@ import datetime
 
 # Import the TeamPredictionModel
 from ml_models.predict_winner import TeamPredictionModel
+from ml_models.player_availability import remove_players_and_get_team_data
 
 # Import other models
 from models.game_model import GameModel
@@ -108,6 +109,206 @@ def predict_winner():
             
         results = ml_prediction_model.predict(team1_stats, team2_stats)
         return jsonify(results)
+    except Exception as e:
+        print(f"Error in predict_winner: {e}")
+        return jsonify({
+            'error': str(e), 
+            'winner': 'Unknown', 
+            'team1_win_prob': 0.5, 
+            'team2_win_prob': 0.5
+        }), 500
+
+@app.route('/predict', methods=['POST'])
+def predict_teams():
+    try:
+        data = request.get_json()
+        team1_name = data.get('team1')
+        team2_name = data.get('team2')
+        
+        if not team1_name or not team2_name:
+            return jsonify({'error': 'Both team names are required'}), 400
+            
+        # Get prediction for these teams
+        prediction = get_prediction_for_teams(team1_name, team2_name)
+        
+        # Format response
+        response = {
+            'winner': team1_name if prediction['team1_win_probability'] > prediction['team2_win_probability'] else team2_name,
+            'team1_win_prob': prediction['team1_win_probability'],
+            'team2_win_prob': prediction['team2_win_probability']
+        }
+        
+        return jsonify({
+            'winner': team1_name if prediction['team1_win_probability'] > prediction['team2_win_probability'] else team2_name,
+            'team1_win_prob': prediction['team1_win_probability'],
+            'team2_win_prob': prediction['team2_win_probability']
+        })
+    except Exception as e:
+        print(f"Error in predict_teams: {e}")
+        return jsonify({
+            'error': str(e),
+            'winner': 'Unknown',
+            'team1_win_prob': 0.5,
+            'team2_win_prob': 0.5
+        }), 500
+
+@app.route('/predict-with-player-availability', methods=['POST'])
+def predict_with_player_availability():
+    try:
+        data = request.get_json()
+        team1_name = data.get('team1')
+        team2_name = data.get('team2')
+        inactive_players = data.get('inactive_players', {})  # Map of player_name to boolean
+        
+        if not team1_name or not team2_name:
+            return jsonify({'error': 'Both team names are required'}), 400
+        
+        # First get baseline prediction without considering player availability
+        baseline_prediction = get_prediction_for_teams(team1_name, team2_name)
+        
+        # TODO: Implement player availability impact calculation using the model
+        # For now, we'll calculate a simple impact based on player stats
+        
+        # Get players from CSV data
+        try:
+            import pandas as pd
+            player_df = pd.read_csv("ml_models/updated_player_data.csv")
+            
+            # Calculate impact factors for inactive players
+            player_impacts = {}
+            team1_impact = 0
+            team2_impact = 0
+            
+            # Team abbreviations
+            team1_abbr = None
+            team2_abbr = None
+            
+            # Use the NBATeams get_team_abbreviation function to get team abbreviations
+            nba_teams = teams.get_teams()
+            team_abbr_mapping = {team['abbreviation']: team['full_name'] for team in nba_teams}
+            inverse_mapping = {team['full_name'].lower(): team['abbreviation'] for team in nba_teams}
+            
+            # Try to find team abbreviations
+            if team1_name.lower() in inverse_mapping:
+                team1_abbr = inverse_mapping[team1_name.lower()]
+            else:
+                print(f"Could not find abbreviation for team: {team1_name}")
+                for name, abbr in inverse_mapping.items():
+                    if team1_name.lower() in name.lower():
+                        team1_abbr = abbr
+                        break
+            
+            if team2_name.lower() in inverse_mapping:
+                team2_abbr = inverse_mapping[team2_name.lower()]
+            else:
+                print(f"Could not find abbreviation for team: {team2_name}")
+                for name, abbr in inverse_mapping.items():
+                    if team2_name.lower() in name.lower():
+                        team2_abbr = abbr
+                        break
+                        
+            print(f"Team abbreviations: {team1_name} -> {team1_abbr}, {team2_name} -> {team2_abbr}")
+            
+            # Calculate impacts for all players in the CSV
+            # First, get a list of players on each team
+            team1_players = player_df[player_df['TEAM_ABBREVIATION'] == team1_abbr]['PLAYER_NAME'].tolist()
+            team2_players = player_df[player_df['TEAM_ABBREVIATION'] == team2_abbr]['PLAYER_NAME'].tolist()
+            
+            # Calculate impacts for all players on both teams
+            all_players_to_check = team1_players + team2_players
+            for player_name in all_players_to_check:
+                    
+                # Find player in dataframe
+                player_rows = player_df[player_df['PLAYER_NAME'] == player_name]
+                if player_rows.empty:
+                    continue
+                    
+                # Use the most recent entry
+                player_row = player_rows.iloc[0]
+                team_abbr = player_row['TEAM_ABBREVIATION']
+                
+                # Calculate player impact factor based on stats
+                # Use a weighted calculation based on the player's stats
+                pts_weight = player_row['PTS'] * 1.0  # Points are important
+                reb_weight = player_row['REB'] * 0.7  # Rebounds somewhat important
+                ast_weight = player_row['AST'] * 0.8  # Assists important
+                stl_weight = player_row['STL'] * 0.5  # Steals somewhat important
+                blk_weight = player_row['BLK'] * 0.5  # Blocks somewhat important
+                
+                # Calculate a composite impact score
+                impact_score = pts_weight + reb_weight + ast_weight + stl_weight + blk_weight
+                
+                # Scale the impact factor based on the player's impact score
+                if impact_score > 30:  # Star player
+                    impact_factor = 0.12 + (impact_score - 30) * 0.002  # Up to ~18% for superstars
+                    impact_factor = min(0.18, impact_factor)  # Cap at 18%
+                elif impact_score > 20:  # Good player
+                    impact_factor = 0.08 + (impact_score - 20) * 0.004  # 8-12%
+                elif impact_score > 10:  # Role player
+                    impact_factor = 0.04 + (impact_score - 10) * 0.004  # 4-8%
+                else:  # Bench player
+                    impact_factor = max(0.01, impact_score * 0.004)  # 1-4%
+                
+                player_impacts[player_name] = impact_factor
+                
+                # Only add to team impact if player is inactive
+                is_inactive = inactive_players.get(player_name, False)
+                if is_inactive:
+                    if team_abbr == team1_abbr:
+                        team1_impact += impact_factor
+                        print(f"Player {player_name} is inactive, adding impact {impact_factor} to team1")
+                    elif team_abbr == team2_abbr:
+                        team2_impact += impact_factor
+                        print(f"Player {player_name} is inactive, adding impact {impact_factor} to team2")
+            
+            # Adjust win probabilities based on impacts
+            team1_win_prob = baseline_prediction['team1_win_probability']
+            team2_win_prob = baseline_prediction['team2_win_probability']
+            
+            # Reduce team's win probability based on inactive players
+            team1_win_prob = max(0.1, team1_win_prob - team1_impact)
+            team2_win_prob = max(0.1, team2_win_prob - team2_impact)
+            
+            # Normalize probabilities to sum to 1
+            total_prob = team1_win_prob + team2_win_prob
+            team1_win_prob = team1_win_prob / total_prob
+            team2_win_prob = team2_win_prob / total_prob
+            
+            # Return prediction with player impacts
+            return jsonify({
+                'winner': team1_name if team1_win_prob > team2_win_prob else team2_name,
+                'team1_win_prob': team1_win_prob,
+                'team2_win_prob': team2_win_prob,
+                'player_impacts': player_impacts
+            })
+            
+        except Exception as e:
+            print(f"Error calculating player impacts: {e}")
+            # Fall back to baseline prediction
+            return jsonify({
+                'winner': team1_name if baseline_prediction['team1_win_probability'] > baseline_prediction['team2_win_probability'] else team2_name,
+                'team1_win_prob': baseline_prediction['team1_win_probability'],
+                'team2_win_prob': baseline_prediction['team2_win_probability'],
+                'player_impacts': {}
+            })
+            
+    except Exception as e:
+        print(f"Error in player availability prediction: {e}")
+        return jsonify({
+            'error': str(e),
+            'winner': 'Unknown',
+            'team1_win_prob': 0.5,
+            'team2_win_prob': 0.5,
+            'player_impacts': {}
+        }), 500
+    except Exception as e:
+        print(f"Error predicting teams: {e}")
+        return jsonify({
+            'error': str(e),
+            'winner': 'Unknown',
+            'team1_win_prob': 0.5,
+            'team2_win_prob': 0.5
+        }), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

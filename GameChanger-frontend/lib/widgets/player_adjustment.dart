@@ -8,6 +8,7 @@ class PlayerAdjustmentsCard extends StatefulWidget {
   final String? selectedTeam2;
   final String? selectedTeamForAdjustment;
   final Map<String, bool> playerAdjustments;
+  final Map<String, double> playerImpactFactors;
   final ValueChanged<String?> onTeamForAdjustmentChanged;
   final Function(String, bool) onPlayerAdjustmentChanged;
 
@@ -17,6 +18,7 @@ class PlayerAdjustmentsCard extends StatefulWidget {
     required this.selectedTeam2,
     required this.selectedTeamForAdjustment,
     required this.playerAdjustments,
+    required this.playerImpactFactors,
     required this.onTeamForAdjustmentChanged,
     required this.onPlayerAdjustmentChanged,
   });
@@ -78,6 +80,34 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
         _error = 'Error loading players: $e';
         _players = [];
       });
+    }
+  }
+
+  // Get color for factor based on player impact and active status
+  Color _getFactorColor(PlayerData player, bool isDarkMode) {
+    // Get the impact factor
+    double factor = widget.playerImpactFactors[player.playerName] ?? 0.0;
+    bool isActive = widget.playerAdjustments[player.playerName] ?? true;
+    
+    // Check if player is active or inactive
+    if (!isActive) {
+      // Inactive player - use red shade
+      return Color(0xFFEE6B6B); // Lighter red
+    }
+    
+    // Color based on impact factor value for active players
+    if (factor >= 0.15) {
+      // High impact - star player
+      return Color(0xFF7FD858); // Green
+    } else if (factor >= 0.08) {
+      // Medium-high impact
+      return Color(0xFFADE985); // Light green
+    } else if (factor >= 0.04) {
+      // Medium impact
+      return Color(0xFFE9DC85); // Yellow
+    } else {
+      // Low impact
+      return isDarkMode ? Colors.grey[800]! : Colors.grey[200]!; // Default grey
     }
   }
 
@@ -221,60 +251,170 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
               ),
             ] else ...[
               Container(
-                margin: const EdgeInsets.only(right: 70.0),
+                padding: const EdgeInsets.only(bottom: 10.0),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      "Player Stats",
-                      style: GoogleFonts.poppins(
-                        fontSize: getFontSize(14),
-                        fontWeight: FontWeight.bold,
-                        color: isDarkMode ? Colors.white : Colors.black,
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        'Name',
+                        style: GoogleFonts.poppins(
+                          fontSize: getFontSize(14),
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
                       ),
                     ),
-                    Text(
-                      "Active",
-                      style: GoogleFonts.poppins(
-                        fontSize: getFontSize(14),
-                        fontWeight: FontWeight.bold,
-                        color: isDarkMode ? Colors.white : Colors.black,
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        'Points',
+                        style: GoogleFonts.poppins(
+                          fontSize: getFontSize(14),
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        'Rebounds',
+                        style: GoogleFonts.poppins(
+                          fontSize: getFontSize(12),
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        'Assists',
+                        style: GoogleFonts.poppins(
+                          fontSize: getFontSize(14),
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        'Factor',
+                        style: GoogleFonts.poppins(
+                          fontSize: getFontSize(14),
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        'Active',
+                        style: GoogleFonts.poppins(
+                          fontSize: getFontSize(14),
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
-              ..._players.map((player) => Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              player.playerName,
-                              style: GoogleFonts.poppins(
-                                fontSize: getFontSize(12),
-                                fontWeight: FontWeight.w600,
-                                color: isDarkMode ? Colors.white : Colors.black,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              player.statsString,
-                              style: GoogleFonts.poppins(
-                                fontSize: getFontSize(10),
-                                color: isDarkMode ? Colors.white70 : Colors.grey[700],
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+              ..._players.map((player) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDarkMode ? Colors.white12 : Colors.grey[300]!,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        player.playerName,
+                        style: GoogleFonts.poppins(
+                          fontSize: getFontSize(13),
+                          fontWeight: FontWeight.w600,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        player.points.toStringAsFixed(1),
+                        style: GoogleFonts.poppins(
+                          fontSize: getFontSize(13),
+                          color: isDarkMode ? Colors.white70 : Colors.grey[700],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        player.rebounds.toStringAsFixed(1),
+                        style: GoogleFonts.poppins(
+                          fontSize: getFontSize(13),
+                          color: isDarkMode ? Colors.white70 : Colors.grey[700],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        player.assists.toStringAsFixed(1),
+                        style: GoogleFonts.poppins(
+                          fontSize: getFontSize(13),
+                          color: isDarkMode ? Colors.white70 : Colors.grey[700],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 10),
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _getFactorColor(player, isDarkMode),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          // Display impact factor if available, or 0 as default
+                          widget.playerImpactFactors.containsKey(player.playerName)
+                              ? (widget.playerImpactFactors[player.playerName]! * 100).toStringAsFixed(1) + '%'
+                              : '0%',
+                          style: GoogleFonts.poppins(
+                            fontSize: getFontSize(13),
+                            color: isDarkMode ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                      Transform.scale(
-                        scale: 0.7,
-                        child: Container(
-                          margin: EdgeInsets.only(right: 70.0),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Center(
+                        child: Transform.scale(
+                          scale: 0.8,
                           child: Switch(
                             value: widget.playerAdjustments[player.playerName] ?? true,
                             onChanged: (value) => widget.onPlayerAdjustmentChanged(player.playerName, value),
@@ -284,8 +424,10 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
                           ),
                         ),
                       ),
-                    ],
-                  )),
+                    ),
+                  ],
+                ),
+              )),
               const SizedBox(height: 8),
             ],
           ],

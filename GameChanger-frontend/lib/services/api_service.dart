@@ -32,25 +32,39 @@ class ApiService {
           if (responseData.containsKey('today') || 
               responseData.containsKey('upcoming') || 
               responseData.containsKey('live')) {
-            // Combine all categories into a single list
+            // Combine all categories into a single list while avoiding duplicates
             List<Game> allGames = [];
+            Set<String> addedGameIds = {}; // Track game IDs to avoid duplicates
+            
+            // Helper function to add games while avoiding duplicates
+            void addGamesFromCategory(List<dynamic> gamesJson, String category) {
+              _log.info('$category games: ${gamesJson.length}');
+              for (var gameJson in gamesJson) {
+                String gameId = gameJson['id']?.toString() ?? '';
+                if (gameId.isNotEmpty && !addedGameIds.contains(gameId)) {
+                  addedGameIds.add(gameId);
+                  allGames.add(_parseGame(gameJson));
+                  _log.info('Added game ID $gameId from $category category');
+                } else if (gameId.isNotEmpty) {
+                  _log.info('Skipped duplicate game ID $gameId from $category category');
+                }
+              }
+            }
+            
+            // Process each category in order of priority
+            if (responseData.containsKey('live')) {
+              final List<dynamic> liveGames = responseData['live'];
+              addGamesFromCategory(liveGames, 'Live');
+            }
             
             if (responseData.containsKey('today')) {
               final List<dynamic> todayGames = responseData['today'];
-              _log.info('Today games: $todayGames');
-              allGames.addAll(todayGames.map((gameJson) => _parseGame(gameJson)).toList());
+              addGamesFromCategory(todayGames, 'Today');
             }
             
             if (responseData.containsKey('upcoming')) {
               final List<dynamic> upcomingGames = responseData['upcoming'];
-              _log.info('Upcoming games: $upcomingGames');
-              allGames.addAll(upcomingGames.map((gameJson) => _parseGame(gameJson)).toList());
-            }
-            
-            if (responseData.containsKey('live')) {
-              final List<dynamic> liveGames = responseData['live'];
-              _log.info('Live games: $liveGames');
-              allGames.addAll(liveGames.map((gameJson) => _parseGame(gameJson)).toList());
+              addGamesFromCategory(upcomingGames, 'Upcoming');
             }
             
             if (allGames.isEmpty) {
@@ -288,10 +302,10 @@ class ApiService {
         _log.warning('Failed to parse game date: $e');
       }
       
-      // SIMPLE CATEGORIZATION LOGIC:
+      // CATEGORIZATION LOGIC:
       // 1. Today Tab: start_time == current time (same day)
       // 2. Upcoming Tab: start_time > current time (future date)
-      // 3. Live Tab: status == LIVE
+      // 3. Live Tab: status == LIVE AND start_time == current date
       
       GameStatus gameStatus;
       final String statusStr = json['status']?.toString().toLowerCase() ?? '';
@@ -301,9 +315,9 @@ class ApiService {
       final today = DateTime(now.year, now.month, now.day);
       final gameDay = DateTime(gameDate.year, gameDate.month, gameDate.day);
       
-      // Apply the exact categorization logic requested
-      if (statusStr == 'live') {
-        // Rule 3: Live Tab: status == LIVE
+      // Apply the updated categorization logic
+      if (statusStr == 'live' && gameDay.isAtSameMomentAs(today)) {
+        // Rule 3: Live Tab: status == LIVE AND start_time == current date
         gameStatus = GameStatus.live;
       } else if (gameDay.isAtSameMomentAs(today)) {
         // Rule 1: Today Tab: start_time == current time (same day)

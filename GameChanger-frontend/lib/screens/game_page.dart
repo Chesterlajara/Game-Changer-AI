@@ -89,9 +89,14 @@ class _GamePageState extends State<GamePage> {
         _log.info('Upcoming tab games: ${filteredGames.length}');
         break;
         
-      case 2: // Live Tab - Show only 'Live' status games for the selected date
-        // For Live games, we can show all live games regardless of date
-        filteredGames = allGames.where((game) => game.status == GameStatus.live).toList();
+      case 2: // Live Tab - Show only 'Live' status games for the current date
+        // For Live games, only show games that are both live AND scheduled for today
+        final now = DateTime.now();
+        final currentDate = DateTime(now.year, now.month, now.day);
+        filteredGames = allGames.where((game) => 
+          game.status == GameStatus.live && 
+          _isSameDate(game.gameDate, currentDate)
+        ).toList();
         _log.info('Live tab games: ${filteredGames.length}');
         break;
         
@@ -127,6 +132,14 @@ class _GamePageState extends State<GamePage> {
         selectedDate = picked;
       });
     }
+  }
+
+  // Reset date filter to today's date
+  void _resetDateFilter() {
+    setState(() {
+      selectedDate = DateTime.now();
+      _log.info('Date filter reset to current date: $selectedDate');
+    });
   }
 
   // Helper method to build individual tabs
@@ -283,20 +296,29 @@ class _GamePageState extends State<GamePage> {
             ),
             const SizedBox(height: 20), // Spacing below tab bar
 
-            // Section Title
+            // Section Title with Refresh Button for Upcoming tab
             Padding(
               padding: const EdgeInsets.only(bottom: 10.0), // Space below title
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  // Dynamic Title based on selected tab
-                  _getTabTitle(),
-                  style: GoogleFonts.poppins(
-                    color: textColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    // Dynamic Title based on selected tab
+                    _getTabTitle(),
+                    style: GoogleFonts.poppins(
+                      color: textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
+                  // Show refresh button only in Upcoming tab
+                  if (_selectedTabIndex == 1) // 1 is the index for Upcoming tab
+                    IconButton(
+                      icon: Icon(Icons.refresh, color: textColor),
+                      tooltip: 'Show all upcoming games',
+                      onPressed: _resetDateFilter,
+                    ),
+                ],
               ),
             ),
 

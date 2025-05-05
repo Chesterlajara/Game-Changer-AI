@@ -33,6 +33,16 @@ def get_games():
         # In a real implementation, we would fetch from NBA API
         # For now, generate mock data that matches the Home Page UI
         
+        # Get current date for mock data
+        import datetime
+        current_date = datetime.datetime.now()
+        today_str = current_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        # Create dates for May 6 and May 8, 2025
+        may_6_date = datetime.datetime(2025, 5, 6, current_date.hour, current_date.minute)
+        may_6_str = may_6_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        may_8_date = datetime.datetime(2025, 5, 8, current_date.hour, current_date.minute)
+        may_8_str = may_8_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        
         # Today's games (including live games)
         today_games = [
             {
@@ -54,7 +64,7 @@ def get_games():
                 'status': 'LIVE',
                 'game_clock': '3:24',
                 'period': 3,
-                'start_time': '2025-05-03T19:30:00Z',
+                'start_time': today_str,  # Today's date for Live tab
                 'prediction': {
                     'home_win_probability': 0.65,
                     'away_win_probability': 0.35
@@ -79,7 +89,7 @@ def get_games():
                 'status': 'SCHEDULED',
                 'game_clock': '',
                 'period': 0,
-                'start_time': '2025-05-03T20:00:00Z',  # 8:00 PM local time
+                'start_time': today_str,  # Today's date for Today tab
                 'prediction': {
                     'home_win_probability': 0.42,
                     'away_win_probability': 0.58
@@ -108,7 +118,7 @@ def get_games():
                 'status': 'SCHEDULED',
                 'game_clock': '',
                 'period': 0,
-                'start_time': '2025-05-04T18:00:00Z',
+                'start_time': may_6_str,  # May 6, 2025 for Upcoming tab
                 'prediction': {
                     'home_win_probability': 0.53,
                     'away_win_probability': 0.47
@@ -133,7 +143,7 @@ def get_games():
                 'status': 'SCHEDULED',
                 'game_clock': '',
                 'period': 0,
-                'start_time': '2025-05-04T19:30:00Z',
+                'start_time': may_8_str,  # May 8, 2025 for Upcoming tab
                 'prediction': {
                     'home_win_probability': 0.48,
                     'away_win_probability': 0.52

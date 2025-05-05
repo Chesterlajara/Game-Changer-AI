@@ -144,17 +144,17 @@ def get_games():
                     'score': 78
                 },
                 'away_team': {
-                    'id': '1610612738',
-                    'name': 'Celtics',
-                    'abbreviation': 'BOS',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612738/global/L/logo.svg',
+                    'id': '1610612742',
+                    'name': 'Mavericks',
+                    'abbreviation': 'DAL',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612742/global/L/logo.svg',
                     'score': 65
                 },
                 'status': 'LIVE',
                 'game_clock': '3:24',
                 'period': 3,
                 'start_time': today_str,
-                'prediction': get_prediction_for_teams('Thunders', 'Celtics')
+                'prediction': get_prediction_for_teams('Thunders', 'Mavericks')
             },
             # Today game (scheduled for today but not live)
             {

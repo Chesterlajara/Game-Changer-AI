@@ -58,26 +58,28 @@ def get_games():
         category = request.args.get('category', None)  # 'today', 'upcoming', 'live', or None for all
         
         # In a real implementation, we would fetch from NBA API
-        # For now, generate mock data that matches the Home Page UI
+        # For now, generate sample game data
         
-        # Get current date for mock data
-        import datetime
+        # Get current date for proper categorization
         current_date = datetime.datetime.now()
+        today = datetime.datetime(current_date.year, current_date.month, current_date.day)
         today_str = current_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        
         # Create dates for May 6 and May 8, 2025
         may_6_date = datetime.datetime(2025, 5, 6, current_date.hour, current_date.minute)
         may_6_str = may_6_date.strftime('%Y-%m-%dT%H:%M:%SZ')
         may_8_date = datetime.datetime(2025, 5, 8, current_date.hour, current_date.minute)
         may_8_str = may_8_date.strftime('%Y-%m-%dT%H:%M:%SZ')
         
-        # Today's games (including live games)
-        today_games = [
+        # All games data
+        all_games = [
+            # Live game (today with LIVE status)
             {
                 'id': '0022400001',
                 'home_team': {
                     'id': '1610612747',
-                    'name': 'Lakers',
-                    'abbreviation': 'LAL',
+                    'name': 'Thunders',
+                    'abbreviation': 'OKC',
                     'logo_url': 'https://cdn.nba.com/logos/nba/1610612747/global/L/logo.svg',
                     'score': 78
                 },
@@ -91,9 +93,10 @@ def get_games():
                 'status': 'LIVE',
                 'game_clock': '3:24',
                 'period': 3,
-                'start_time': today_str,  # Today's date for Live tab
-                'prediction': get_prediction_for_teams('Lakers', 'Celtics')
+                'start_time': today_str,
+                'prediction': get_prediction_for_teams('Thunders', 'Celtics')
             },
+            # Today game (scheduled for today but not live)
             {
                 'id': '0022400002',
                 'home_team': {
@@ -113,13 +116,10 @@ def get_games():
                 'status': 'SCHEDULED',
                 'game_clock': '',
                 'period': 0,
-                'start_time': today_str,  # Today's date for Today tab
+                'start_time': today_str,
                 'prediction': get_prediction_for_teams('Warriors', 'Nets')
-            }
-        ]
-        
-        # Upcoming games (next few days)
-        upcoming_games = [
+            },
+            # Upcoming game 1 (May 6)
             {
                 'id': '0022400003',
                 'home_team': {
@@ -139,9 +139,10 @@ def get_games():
                 'status': 'SCHEDULED',
                 'game_clock': '',
                 'period': 0,
-                'start_time': may_6_str,  # May 6, 2025 for Upcoming tab
+                'start_time': may_6_str,
                 'prediction': get_prediction_for_teams('Rockets', 'Spurs')
             },
+            # Upcoming game 2 (May 8)
             {
                 'id': '0022400004',
                 'home_team': {
@@ -161,13 +162,32 @@ def get_games():
                 'status': 'SCHEDULED',
                 'game_clock': '',
                 'period': 0,
-                'start_time': may_8_str,  # May 8, 2025 for Upcoming tab
+                'start_time': may_8_str,
                 'prediction': get_prediction_for_teams('Heat', 'Knicks')
             }
         ]
         
-        # Live games (subset of today's games)
-        live_games = [game for game in today_games if game['status'] == 'LIVE']
+        # Properly categorize games based on date and status
+        today_games = []
+        upcoming_games = []
+        live_games = []
+        
+        for game in all_games:
+            # Parse the game start time
+            game_date = datetime.datetime.strptime(game['start_time'], '%Y-%m-%dT%H:%M:%SZ')
+            game_day = datetime.datetime(game_date.year, game_date.month, game_date.day)
+            
+            # Apply the correct categorization logic
+            if game_day.date() == today.date():
+                # Game is scheduled for today
+                if game['status'] == 'LIVE':
+                    # Game is live
+                    live_games.append(game)
+                # All games scheduled for today go in today_games
+                today_games.append(game)
+            elif game_day > today:
+                # Game is in the future
+                upcoming_games.append(game)
         
         # Filter based on category parameter
         if category == 'today':
@@ -186,6 +206,9 @@ def get_games():
             
         return jsonify({'games': games})
     except Exception as e:
+        print(f"Error in get_games: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/player/<player_id>', methods=['GET'])

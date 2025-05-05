@@ -336,13 +336,13 @@ class ApiService {
       return Game(
         team1Name: homeTeam['name']?.toString() ?? 'Team 1',
         team1LogoPath: homeTeam['logo_url']?.toString() ?? '',
-        team1WinProbability: prediction['home_win_probability'] != null 
-            ? (prediction['home_win_probability'] as num).toDouble() 
+        team1WinProbability: prediction['team1_win_probability'] != null 
+            ? (prediction['team1_win_probability'] as num).toDouble() 
             : 0.5,
         team2Name: awayTeam['name']?.toString() ?? 'Team 2',
         team2LogoPath: awayTeam['logo_url']?.toString() ?? '',
-        team2WinProbability: prediction['away_win_probability'] != null 
-            ? (prediction['away_win_probability'] as num).toDouble() 
+        team2WinProbability: prediction['team2_win_probability'] != null 
+            ? (prediction['team2_win_probability'] as num).toDouble() 
             : 0.5,
         status: gameStatus,
         gameDate: gameDate,

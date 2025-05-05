@@ -13,6 +13,66 @@ from models.game_analysis import GameAnalysis
 from models.team_stats import TeamStats
 from models.player_stats import PlayerStats
 
+# Import NBA API packages
+from nba_api.stats.endpoints import teamdashboardbygeneralsplits, leaguedashteamstats
+from nba_api.stats.static import teams
+import pandas as pd
+import os
+
+# Dictionary to cache team stats to avoid repeated API calls
+team_stats_cache = {}
+
+# Load fallback data from CSV files
+def load_fallback_team_data():
+    try:
+        csv_path = os.path.join('data', 'team_data.csv')
+        if os.path.exists(csv_path):
+            print(f"Loading fallback team data from {csv_path}")
+            df = pd.read_csv(csv_path)
+            
+            # Group by team and get the most recent data for each team
+            team_data = {}
+            for team_name, group in df.groupby('TEAM_NAME'):
+                # Get the most recent game data for this team
+                latest_data = group.sort_values('GAME_DATE', ascending=False).iloc[0]
+                
+                # Convert to the format our model expects
+                team_data[team_name] = {
+                    'W': int(latest_data['W']),
+                    'L': int(latest_data['L']),
+                    'W_PCT': float(latest_data['W_PCT']),
+                    'MIN': float(latest_data.get('MIN', 240)),
+                    'FGM': float(latest_data['FGM']),
+                    'FGA': float(latest_data['FGA']),
+                    'FG_PCT': float(latest_data['FG_PCT']),
+                    'FG3M': float(latest_data['FG3M']),
+                    'FG3A': float(latest_data['FG3A']),
+                    'FG3_PCT': float(latest_data['FG3_PCT']),
+                    'FTM': float(latest_data['FTM']),
+                    'FTA': float(latest_data['FTA']),
+                    'FT_PCT': float(latest_data['FT_PCT']),
+                    'OREB': float(latest_data['OREB']),
+                    'DREB': float(latest_data['DREB']),
+                    'REB': float(latest_data['REB']),
+                    'AST': float(latest_data['AST']),
+                    'STL': float(latest_data['STL']),
+                    'BLK': float(latest_data['BLK']),
+                    'TOV': float(latest_data['TOV']),
+                    'PF': float(latest_data['PF']),
+                    'PTS': float(latest_data['PTS']),
+                    'TEAM_ABBR': str(latest_data['TEAM_ABBREVIATION'])
+                }
+            return team_data
+        else:
+            print(f"Warning: Fallback team data file not found at {csv_path}")
+            return {}
+    except Exception as e:
+        print(f"Error loading fallback team data: {e}")
+        return {}
+
+# Load fallback data on startup
+fallback_team_data = load_fallback_team_data()
+
 app = Flask(__name__)
 CORS(app)
 
@@ -390,86 +450,171 @@ def get_team_defensive_stats():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Helper function to get team ID from team name
+def get_team_id(team_name):
+    # Get all teams
+    nba_teams = teams.get_teams()
+    
+    # Try to find the team by name
+    team = next((team for team in nba_teams if team['full_name'].lower() == team_name.lower() 
+                 or team['nickname'].lower() == team_name.lower()), None)
+    
+    if team:
+        return team['id']
+    else:
+        # Handle special cases or abbreviations
+        if team_name.lower() == 'thunders' or team_name.lower() == 'thunder':
+            return 1610612760  # OKC Thunder
+        elif team_name.lower() == 'warriors':
+            return 1610612744  # Golden State Warriors
+        elif team_name.lower() == 'celtics':
+            return 1610612738  # Boston Celtics
+        elif team_name.lower() == 'nets':
+            return 1610612751  # Brooklyn Nets
+        else:
+            print(f"Could not find team ID for {team_name}")
+            return None
+
+# Helper function to get team stats from NBA API with fallback to CSV data
+def get_team_stats_from_api(team_name):
+    # Check if we already have the stats cached
+    if team_name in team_stats_cache:
+        print(f"Using cached stats for {team_name}")
+        return team_stats_cache[team_name]
+    
+    # For the Home Page loading, prioritize using fallback data first to avoid API delays
+    if team_name in fallback_team_data:
+        print(f"Using fallback data for {team_name} from CSV (fast path)")
+        team_stats_cache[team_name] = fallback_team_data[team_name]  # Cache it
+        return fallback_team_data[team_name]
+    
+    # Get team ID
+    team_id = get_team_id(team_name)
+    if not team_id:
+        print(f"Error: Could not get team ID for {team_name}")
+        return None
+    
+    try:
+        # Get team stats from NBA API with a shorter timeout
+        print(f"Fetching stats from NBA API for {team_name} (ID: {team_id})")
+        
+        # Use a shorter timeout to avoid long loading times
+        timeout_seconds = 10  # Reduced from 120 to 10 seconds
+        
+        # Get general team stats
+        team_stats = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
+            team_id=team_id,
+            per_mode_detailed='PerGame',
+            season='2024-25',  # Use current season
+            season_type_all_star='Regular Season',
+            timeout=timeout_seconds
+        )
+        
+        # Convert to pandas DataFrame
+        df = team_stats.get_data_frames()[0]
+        
+        # Skip league stats to improve performance
+        team_abbr = team_name[:3].upper()
+        
+        # Extract relevant stats and format them for our model
+        stats = {
+            'W': int(df['W'][0]),
+            'L': int(df['L'][0]),
+            'W_PCT': float(df['W_PCT'][0]),
+            'MIN': float(df['MIN'][0]),
+            'FGM': float(df['FGM'][0]),
+            'FGA': float(df['FGA'][0]),
+            'FG_PCT': float(df['FG_PCT'][0]),
+            'FG3M': float(df['FG3M'][0]),
+            'FG3A': float(df['FG3A'][0]),
+            'FG3_PCT': float(df['FG3_PCT'][0]),
+            'FTM': float(df['FTM'][0]),
+            'FTA': float(df['FTA'][0]),
+            'FT_PCT': float(df['FT_PCT'][0]),
+            'OREB': float(df['OREB'][0]),
+            'DREB': float(df['DREB'][0]),
+            'REB': float(df['REB'][0]),
+            'AST': float(df['AST'][0]),
+            'STL': float(df['STL'][0]),
+            'BLK': float(df['BLK'][0]),
+            'TOV': float(df['TOV'][0]),
+            'PF': float(df['PF'][0]),
+            'PTS': float(df['PTS'][0]),
+            'TEAM_ABBR': team_abbr
+        }
+        
+        # Cache the stats
+        team_stats_cache[team_name] = stats
+        
+        print(f"Successfully fetched stats for {team_name}")
+        return stats
+        
+    except Exception as e:
+        print(f"Error fetching stats for {team_name} from NBA API: {e}")
+        
+        # Try to use fallback data from CSV
+        if team_name in fallback_team_data:
+            print(f"Using fallback data for {team_name} from CSV (after API failure)")
+            team_stats_cache[team_name] = fallback_team_data[team_name]  # Cache it
+            return fallback_team_data[team_name]
+            
+        print(f"No fallback data available for {team_name}")
+        return None
+
 # Helper function to get predictions for teams by name
 def get_prediction_for_teams(home_team_name, away_team_name):
-    # This is a simplified version - in a real app, you would fetch actual team stats
-    # from a database or API based on the team names
+    print(f"Getting prediction for {home_team_name} vs {away_team_name}")
     
-    # Sample team stats based on the example in predict_winner.py
-    team_stats = {
-        'Lakers': {
-            'W': 28, 'L': 15, 'W_PCT': 0.65, 'MIN': 240, 'FGM': 42, 'FGA': 90, 'FG_PCT': 0.47,
-            'FG3M': 12, 'FG3A': 35, 'FG3_PCT': 0.34, 'FTM': 20, 'FTA': 25, 'FT_PCT': 0.80,
-            'OREB': 10, 'DREB': 35, 'REB': 45, 'AST': 25, 'STL': 7, 'BLK': 5, 'TOV': 13, 'PF': 18,
-            'PTS': 116, 'TEAM_ABBR': 'LAL'
-        },
-        'Celtics': {
-            'W': 32, 'L': 12, 'W_PCT': 0.73, 'MIN': 240, 'FGM': 40, 'FGA': 88, 'FG_PCT': 0.45,
-            'FG3M': 15, 'FG3A': 38, 'FG3_PCT': 0.39, 'FTM': 22, 'FTA': 28, 'FT_PCT': 0.79,
-            'OREB': 9, 'DREB': 34, 'REB': 43, 'AST': 26, 'STL': 8, 'BLK': 6, 'TOV': 12, 'PF': 17,
-            'PTS': 117, 'TEAM_ABBR': 'BOS'
-        },
-        'Warriors': {
-            'W': 25, 'L': 18, 'W_PCT': 0.58, 'MIN': 240, 'FGM': 41, 'FGA': 89, 'FG_PCT': 0.46,
-            'FG3M': 14, 'FG3A': 37, 'FG3_PCT': 0.38, 'FTM': 18, 'FTA': 23, 'FT_PCT': 0.78,
-            'OREB': 8, 'DREB': 33, 'REB': 41, 'AST': 28, 'STL': 8, 'BLK': 4, 'TOV': 14, 'PF': 19,
-            'PTS': 114, 'TEAM_ABBR': 'GSW'
-        },
-        'Nets': {
-            'W': 20, 'L': 23, 'W_PCT': 0.47, 'MIN': 240, 'FGM': 39, 'FGA': 87, 'FG_PCT': 0.45,
-            'FG3M': 12, 'FG3A': 33, 'FG3_PCT': 0.36, 'FTM': 19, 'FTA': 25, 'FT_PCT': 0.76,
-            'OREB': 9, 'DREB': 32, 'REB': 41, 'AST': 24, 'STL': 7, 'BLK': 5, 'TOV': 15, 'PF': 20,
-            'PTS': 109, 'TEAM_ABBR': 'BKN'
-        },
-        'Rockets': {
-            'W': 18, 'L': 25, 'W_PCT': 0.42, 'MIN': 240, 'FGM': 38, 'FGA': 86, 'FG_PCT': 0.44,
-            'FG3M': 11, 'FG3A': 32, 'FG3_PCT': 0.34, 'FTM': 20, 'FTA': 26, 'FT_PCT': 0.77,
-            'OREB': 10, 'DREB': 31, 'REB': 41, 'AST': 22, 'STL': 8, 'BLK': 4, 'TOV': 16, 'PF': 21,
-            'PTS': 107, 'TEAM_ABBR': 'HOU'
-        },
-        'Spurs': {
-            'W': 16, 'L': 27, 'W_PCT': 0.37, 'MIN': 240, 'FGM': 37, 'FGA': 85, 'FG_PCT': 0.44,
-            'FG3M': 10, 'FG3A': 30, 'FG3_PCT': 0.33, 'FTM': 18, 'FTA': 24, 'FT_PCT': 0.75,
-            'OREB': 9, 'DREB': 30, 'REB': 39, 'AST': 23, 'STL': 7, 'BLK': 4, 'TOV': 15, 'PF': 20,
-            'PTS': 102, 'TEAM_ABBR': 'SAS'
-        },
-        'Heat': {
-            'W': 24, 'L': 19, 'W_PCT': 0.56, 'MIN': 240, 'FGM': 39, 'FGA': 86, 'FG_PCT': 0.45,
-            'FG3M': 13, 'FG3A': 34, 'FG3_PCT': 0.38, 'FTM': 19, 'FTA': 24, 'FT_PCT': 0.79,
-            'OREB': 8, 'DREB': 32, 'REB': 40, 'AST': 25, 'STL': 7, 'BLK': 5, 'TOV': 13, 'PF': 18,
-            'PTS': 110, 'TEAM_ABBR': 'MIA'
-        },
-        'Knicks': {
-            'W': 26, 'L': 17, 'W_PCT': 0.60, 'MIN': 240, 'FGM': 40, 'FGA': 87, 'FG_PCT': 0.46,
-            'FG3M': 12, 'FG3A': 32, 'FG3_PCT': 0.38, 'FTM': 20, 'FTA': 25, 'FT_PCT': 0.80,
-            'OREB': 9, 'DREB': 33, 'REB': 42, 'AST': 24, 'STL': 8, 'BLK': 5, 'TOV': 14, 'PF': 19,
-            'PTS': 112, 'TEAM_ABBR': 'NYK'
+    # Get team stats from NBA API with fallback to CSV data
+    home_stats = get_team_stats_from_api(home_team_name)
+    away_stats = get_team_stats_from_api(away_team_name)
+    
+    # If we couldn't get stats from either API or CSV, use reasonable defaults
+    if not home_stats:
+        print(f"Warning: No stats available for {home_team_name}, using default stats")
+        home_stats = {
+            'W': 25, 'L': 20, 'W_PCT': 0.55, 'MIN': 240, 'FGM': 40, 'FGA': 88, 'FG_PCT': 0.45,
+            'FG3M': 12, 'FG3A': 34, 'FG3_PCT': 0.35, 'FTM': 19, 'FTA': 25, 'FT_PCT': 0.76,
+            'OREB': 9, 'DREB': 33, 'REB': 42, 'AST': 24, 'STL': 7, 'BLK': 5, 'TOV': 14, 'PF': 19,
+            'PTS': 110, 'TEAM_ABBR': home_team_name[:3].upper()
         }
-    }
     
-    # Get team stats or use defaults if not found
-    home_stats = team_stats.get(home_team_name, team_stats['Lakers'])
-    away_stats = team_stats.get(away_team_name, team_stats['Celtics'])
+    if not away_stats:
+        print(f"Warning: No stats available for {away_team_name}, using default stats")
+        away_stats = {
+            'W': 25, 'L': 20, 'W_PCT': 0.55, 'MIN': 240, 'FGM': 40, 'FGA': 88, 'FG_PCT': 0.45,
+            'FG3M': 12, 'FG3A': 34, 'FG3_PCT': 0.35, 'FTM': 19, 'FTA': 25, 'FT_PCT': 0.76,
+            'OREB': 9, 'DREB': 33, 'REB': 42, 'AST': 24, 'STL': 7, 'BLK': 5, 'TOV': 14, 'PF': 19,
+            'PTS': 110, 'TEAM_ABBR': away_team_name[:3].upper()
+        }
     
     # Get prediction
     try:
         if ml_prediction_model is None:
             raise Exception("ML prediction model not loaded")
             
+        # Print detailed stats being passed to the model
+        print(f"\nPassing the following stats to the prediction model:")
+        print(f"Home team ({home_team_name}) stats: W-L: {home_stats['W']}-{home_stats['L']}, W_PCT: {home_stats['W_PCT']}, PTS: {home_stats['PTS']}")
+        print(f"Away team ({away_team_name}) stats: W-L: {away_stats['W']}-{away_stats['L']}, W_PCT: {away_stats['W_PCT']}, PTS: {away_stats['PTS']}")
+        
+        # Get prediction
         results = ml_prediction_model.predict(home_stats, away_stats)
         print(f"Prediction for {home_team_name} vs {away_team_name}: {results}")
+        print(f"Team1 ({home_team_name}) win probability: {float(results['team1_win_prob']):.2f}")
+        print(f"Team2 ({away_team_name}) win probability: {float(results['team2_win_prob']):.2f}")
         
         return {
-            'home_win_probability': float(results['team1_win_prob']),
-            'away_win_probability': float(results['team2_win_prob'])
+            'team1_win_probability': float(results['team1_win_prob']),
+            'team2_win_probability': float(results['team2_win_prob'])
         }
     except Exception as e:
         print(f"Error predicting winner: {e}")
         # Fallback to random probabilities that sum to 1
         home_prob = round(random.uniform(0.4, 0.6), 2)
         return {
-            'home_win_probability': home_prob,
-            'away_win_probability': round(1 - home_prob, 2)
+            'team1_win_probability': home_prob,
+            'team2_win_probability': round(1 - home_prob, 2)
         }
 
 if __name__ == '__main__':

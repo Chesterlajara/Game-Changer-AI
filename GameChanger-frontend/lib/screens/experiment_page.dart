@@ -8,6 +8,7 @@ import '../widgets/player_adjustment.dart';
 import '../widgets/performance_factor.dart';
 import '../widgets/prediction_card.dart';
 import '../providers/theme_provider.dart';
+import '../data/nba_teams.dart';
 
 class ExperimentPage extends StatefulWidget {
   const ExperimentPage({super.key});
@@ -35,13 +36,8 @@ class _ExperimentPageState extends State<ExperimentPage> {
   double restDaysImpact = 5;
   double recentFormWeight = 5;
 
-  List<String> sampleTeams = [
-    'Los Angeles Lakers',
-    'Boston Celtics',
-    'Golden State Warriors',
-    'Chicago Bulls',
-    'Miami Heat',
-  ];
+  // Use all NBA team names from our data file
+  List<String> sampleTeams = NbaTeams.getAllTeamNames();
 
   void resetSelection() {
     setState(() {

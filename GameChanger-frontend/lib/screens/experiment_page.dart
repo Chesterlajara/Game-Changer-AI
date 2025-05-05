@@ -9,6 +9,7 @@ import '../widgets/performance_factor.dart';
 import '../widgets/prediction_card.dart';
 import '../providers/theme_provider.dart';
 import '../data/nba_teams.dart';
+import '../data/player_data.dart';
 
 class ExperimentPage extends StatefulWidget {
   const ExperimentPage({super.key});
@@ -22,22 +23,32 @@ class _ExperimentPageState extends State<ExperimentPage> {
   String? selectedTeam2;
   String? selectedTeamForAdjustment;
 
-  List<String> samplePlayers = [
-    'LeBron James',
-    'Stephen Curry',
-    'Kevin Durant',
-    'Jayson Tatum',
-    'Jimmy Butler',
-  ];
-
+  // Map to track player adjustments (active/inactive)
   Map<String, bool> playerAdjustments = {};
 
+  // Performance factors
   double homeCourtAdvantage = 5;
   double restDaysImpact = 5;
   double recentFormWeight = 5;
 
   // Use all NBA team names from our data file
   List<String> sampleTeams = NbaTeams.getAllTeamNames();
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize player data from CSV
+    _initializePlayerData();
+  }
+
+  Future<void> _initializePlayerData() async {
+    try {
+      // Pre-load player data in the background
+      await PlayerData.loadPlayerData();
+    } catch (e) {
+      print('Error pre-loading player data: $e');
+    }
+  }
 
   void resetSelection() {
     setState(() {
@@ -96,7 +107,6 @@ class _ExperimentPageState extends State<ExperimentPage> {
                 selectedTeam1: selectedTeam1,
                 selectedTeam2: selectedTeam2,
                 selectedTeamForAdjustment: selectedTeamForAdjustment,
-                samplePlayers: samplePlayers,
                 playerAdjustments: playerAdjustments,
                 onTeamForAdjustmentChanged: (value) => setState(() => selectedTeamForAdjustment = value),
                 onPlayerAdjustmentChanged: (player, value) => setState(() => playerAdjustments[player] = value),

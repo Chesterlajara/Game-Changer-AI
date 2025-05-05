@@ -1,49 +1,67 @@
 import pickle
 import pandas as pd
 
-# Load model, scaler, imputer, and column structure
-with open("ml_models/xgb_model.pkl", "rb") as f:
-    model = pickle.load(f)
+class TeamPredictionModel:
+    def __init__(self, model_path, scaler_path, imputer_path, columns_path):
+        # Load model, scaler, imputer, and column structure
+        with open(model_path, "rb") as f:
+            self.model = pickle.load(f)
+        
+        with open(scaler_path, "rb") as f:
+            self.scaler = pickle.load(f)
+        
+        with open(imputer_path, "rb") as f:
+            self.imputer = pickle.load(f)
+        
+        with open(columns_path, "rb") as f:
+            self.trained_columns = pickle.load(f)
+        
+        self.num_cols = [col for col in self.trained_columns if not col.startswith('TEAM_ABBR_')]
 
-with open("ml_models/scaler.pkl", "rb") as f:
-    scaler = pickle.load(f)
-
-with open("ml_models/imputer.pkl", "rb") as f:
-    imputer = pickle.load(f)
-
-with open("ml_models/x_columns.pkl", "rb") as f:
-    trained_columns = pickle.load(f)
-
-def predict_winner(team1_stats: dict, team2_stats: dict):
-    def preprocess(team_stats):
+    def preprocess(self, team_stats):
+        """Preprocesses the team statistics and scales them."""
         df = pd.DataFrame([team_stats])
         df = pd.get_dummies(df)
-        df = df.reindex(columns=trained_columns, fill_value=0)
-        df[num_cols] = imputer.transform(df[num_cols])
-        df_scaled = scaler.transform(df)
+        df = df.reindex(columns=self.trained_columns, fill_value=0)
+        df[self.num_cols] = self.imputer.transform(df[self.num_cols])
+        df_scaled = self.scaler.transform(df)
         return df_scaled
 
-    num_cols = [col for col in trained_columns if not col.startswith('TEAM_ABBR_')]
+    def predict(self, team1_stats, team2_stats):
+        """Predicts the winner between two teams based on their statistics."""
+        team1_processed = self.preprocess(team1_stats)
+        team2_processed = self.preprocess(team2_stats)
 
-    team1_processed = preprocess(team1_stats)
-    team2_processed = preprocess(team2_stats)
+        prob1 = self.model.predict_proba(team1_processed)[0][1]  # Team 1 win probability
+        prob2 = self.model.predict_proba(team2_processed)[0][1]  # Team 2 win probability
 
-    prob1 = model.predict_proba(team1_processed)[0][1]  # Team 1 win probability
-    prob2 = model.predict_proba(team2_processed)[0][1]  # Team 2 win probability
+        total_prob = prob1 + prob2
+        prob1_normalized = prob1 / total_prob
+        prob2_normalized = prob2 / total_prob
 
-    total_prob = prob1 + prob2
-    prob1_normalized = prob1 / total_prob
-    prob2_normalized = prob2 / total_prob
+        winner = "Team 1" if prob1_normalized > prob2_normalized else "Team 2"
+        
+        return {
+            "winner": winner,
+            "team1_win_prob": prob1_normalized,
+            "team2_win_prob": prob2_normalized
+        }
 
-    winner = "Team 1" if prob1_normalized > prob2_normalized else "Team 2"
-    print(f"{winner} is more likely to win.")
-    print(f"Team 1 Win Probability: {prob1_normalized:.2%}")
-    print(f"Team 2 Win Probability: {prob2_normalized:.2%}")
+    def display_results(self, results):
+        """Displays the prediction results."""
+        winner = results['winner']
+        team1_win_prob = results['team1_win_prob']
+        team2_win_prob = results['team2_win_prob']
+        
+        print(f"{winner} is more likely to win.")
+        print(f"Team 1 Win Probability: {team1_win_prob:.2%}")
+        print(f"Team 2 Win Probability: {team2_win_prob:.2%}")
 
+# Usage example
 team1 = {
-    'W': 100, 'L': 20, 'W_PCT': 0.6, 'MIN': 240, 'FGM': 42, 'FGA': 90, 'FG_PCT': 0.47,
-    'FG3M': 12, 'FG3A': 30, 'FG3_PCT': 0.40, 'FTM': 20, 'FTA': 25, 'FT_PCT': 0.80,
-    'OREB': 10, 'DREB': 35, 'REB': 45, 'AST': 0, 'STL': 7, 'BLK': 5, 'TOV': 3, 'PF': 18,
+    'W': 10, 'L': 20, 'W_PCT': 0.6, 'MIN': 240, 'FGM': 42, 'FGA': 90, 'FG_PCT': 0.47,
+    'FG3M': 6, 'FG3A': 30, 'FG3_PCT': 0.20, 'FTM': 20, 'FTA': 25, 'FT_PCT': 0.80,
+    'OREB': 10, 'DREB': 35, 'REB': 45, 'AST': 0, 'STL': 7, 'BLK': 5, 'TOV': 13, 'PF': 18,
     'PTS': 116, 'TEAM_ABBR': 'LAL'
 }
 
@@ -54,4 +72,11 @@ team2 = {
     'PTS': 112, 'TEAM_ABBR': 'BOS'
 }
 
-predict_winner(team1, team2)
+# Initialize the prediction model
+model = TeamPredictionModel("ml_models/xgb_model.pkl", "ml_models/scaler.pkl", 
+                            "ml_models/imputer.pkl", "ml_models/x_columns.pkl")
+
+results = model.predict(team1, team2)
+
+# Display the results
+model.display_results(results)

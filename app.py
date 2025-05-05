@@ -1,31 +1,58 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
-from models.game_model import GameModel
-import json
-import pandas as pd
-import numpy as np
-from nba_api.stats.endpoints import playercareerstats, leaguegamefinder, scoreboardv2
-from nba_api.live.nba.endpoints import scoreboard as live_scoreboard
+import random
 import datetime
+
+# Import the TeamPredictionModel
+from ml_models.predict_winner import TeamPredictionModel
+
+# Import other models
+from models.game_model import GameModel
 from models.prediction import PredictionModel
 from models.game_analysis import GameAnalysis
 from models.team_stats import TeamStats
 from models.player_stats import PlayerStats
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for Flutter frontend
+CORS(app)
 
-# Initialize models
+# Initialize the ML prediction model
+try:
+    ml_prediction_model = TeamPredictionModel(
+        "ml_models/xgb_model.pkl", 
+        "ml_models/scaler.pkl", 
+        "ml_models/imputer.pkl", 
+        "ml_models/x_columns.pkl"
+    )
+    print("ML prediction model loaded successfully")
+except Exception as e:
+    print(f"Error loading ML prediction model: {e}")
+    ml_prediction_model = None
+
+# Initialize other models
 game_model = GameModel()
 prediction_model = PredictionModel()
 game_analysis = GameAnalysis()
 team_stats = TeamStats()
 player_stats = PlayerStats()
 
-# API Routes for Flutter Frontend
+@app.route('/api/predict-winner', methods=['POST'])
+def predict_winner():
+    try:
+        data = request.get_json()
+        team1_stats = data.get('team1_stats')
+        team2_stats = data.get('team2_stats')
+        
+        if not team1_stats or not team2_stats:
+            return jsonify({'error': 'Both team stats are required'}), 400
+            
+        results = ml_prediction_model.predict(team1_stats, team2_stats)
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/games', methods=['GET'])
 def get_games():
-    """Get games categorized as Today, Upcoming, and Live with prediction data"""
     try:
         # Get filter parameter (optional)
         category = request.args.get('category', None)  # 'today', 'upcoming', 'live', or None for all
@@ -65,10 +92,7 @@ def get_games():
                 'game_clock': '3:24',
                 'period': 3,
                 'start_time': today_str,  # Today's date for Live tab
-                'prediction': {
-                    'home_win_probability': 0.65,
-                    'away_win_probability': 0.35
-                }
+                'prediction': get_prediction_for_teams('Lakers', 'Celtics')
             },
             {
                 'id': '0022400002',
@@ -90,10 +114,7 @@ def get_games():
                 'game_clock': '',
                 'period': 0,
                 'start_time': today_str,  # Today's date for Today tab
-                'prediction': {
-                    'home_win_probability': 0.42,
-                    'away_win_probability': 0.58
-                }
+                'prediction': get_prediction_for_teams('Warriors', 'Nets')
             }
         ]
         
@@ -119,10 +140,7 @@ def get_games():
                 'game_clock': '',
                 'period': 0,
                 'start_time': may_6_str,  # May 6, 2025 for Upcoming tab
-                'prediction': {
-                    'home_win_probability': 0.53,
-                    'away_win_probability': 0.47
-                }
+                'prediction': get_prediction_for_teams('Rockets', 'Spurs')
             },
             {
                 'id': '0022400004',
@@ -144,10 +162,7 @@ def get_games():
                 'game_clock': '',
                 'period': 0,
                 'start_time': may_8_str,  # May 8, 2025 for Upcoming tab
-                'prediction': {
-                    'home_win_probability': 0.48,
-                    'away_win_probability': 0.52
-                }
+                'prediction': get_prediction_for_teams('Heat', 'Knicks')
             }
         ]
         
@@ -352,5 +367,87 @@ def get_team_defensive_stats():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Helper function to get predictions for teams by name
+def get_prediction_for_teams(home_team_name, away_team_name):
+    # This is a simplified version - in a real app, you would fetch actual team stats
+    # from a database or API based on the team names
+    
+    # Sample team stats based on the example in predict_winner.py
+    team_stats = {
+        'Lakers': {
+            'W': 28, 'L': 15, 'W_PCT': 0.65, 'MIN': 240, 'FGM': 42, 'FGA': 90, 'FG_PCT': 0.47,
+            'FG3M': 12, 'FG3A': 35, 'FG3_PCT': 0.34, 'FTM': 20, 'FTA': 25, 'FT_PCT': 0.80,
+            'OREB': 10, 'DREB': 35, 'REB': 45, 'AST': 25, 'STL': 7, 'BLK': 5, 'TOV': 13, 'PF': 18,
+            'PTS': 116, 'TEAM_ABBR': 'LAL'
+        },
+        'Celtics': {
+            'W': 32, 'L': 12, 'W_PCT': 0.73, 'MIN': 240, 'FGM': 40, 'FGA': 88, 'FG_PCT': 0.45,
+            'FG3M': 15, 'FG3A': 38, 'FG3_PCT': 0.39, 'FTM': 22, 'FTA': 28, 'FT_PCT': 0.79,
+            'OREB': 9, 'DREB': 34, 'REB': 43, 'AST': 26, 'STL': 8, 'BLK': 6, 'TOV': 12, 'PF': 17,
+            'PTS': 117, 'TEAM_ABBR': 'BOS'
+        },
+        'Warriors': {
+            'W': 25, 'L': 18, 'W_PCT': 0.58, 'MIN': 240, 'FGM': 41, 'FGA': 89, 'FG_PCT': 0.46,
+            'FG3M': 14, 'FG3A': 37, 'FG3_PCT': 0.38, 'FTM': 18, 'FTA': 23, 'FT_PCT': 0.78,
+            'OREB': 8, 'DREB': 33, 'REB': 41, 'AST': 28, 'STL': 8, 'BLK': 4, 'TOV': 14, 'PF': 19,
+            'PTS': 114, 'TEAM_ABBR': 'GSW'
+        },
+        'Nets': {
+            'W': 20, 'L': 23, 'W_PCT': 0.47, 'MIN': 240, 'FGM': 39, 'FGA': 87, 'FG_PCT': 0.45,
+            'FG3M': 12, 'FG3A': 33, 'FG3_PCT': 0.36, 'FTM': 19, 'FTA': 25, 'FT_PCT': 0.76,
+            'OREB': 9, 'DREB': 32, 'REB': 41, 'AST': 24, 'STL': 7, 'BLK': 5, 'TOV': 15, 'PF': 20,
+            'PTS': 109, 'TEAM_ABBR': 'BKN'
+        },
+        'Rockets': {
+            'W': 18, 'L': 25, 'W_PCT': 0.42, 'MIN': 240, 'FGM': 38, 'FGA': 86, 'FG_PCT': 0.44,
+            'FG3M': 11, 'FG3A': 32, 'FG3_PCT': 0.34, 'FTM': 20, 'FTA': 26, 'FT_PCT': 0.77,
+            'OREB': 10, 'DREB': 31, 'REB': 41, 'AST': 22, 'STL': 8, 'BLK': 4, 'TOV': 16, 'PF': 21,
+            'PTS': 107, 'TEAM_ABBR': 'HOU'
+        },
+        'Spurs': {
+            'W': 16, 'L': 27, 'W_PCT': 0.37, 'MIN': 240, 'FGM': 37, 'FGA': 85, 'FG_PCT': 0.44,
+            'FG3M': 10, 'FG3A': 30, 'FG3_PCT': 0.33, 'FTM': 18, 'FTA': 24, 'FT_PCT': 0.75,
+            'OREB': 9, 'DREB': 30, 'REB': 39, 'AST': 23, 'STL': 7, 'BLK': 4, 'TOV': 15, 'PF': 20,
+            'PTS': 102, 'TEAM_ABBR': 'SAS'
+        },
+        'Heat': {
+            'W': 24, 'L': 19, 'W_PCT': 0.56, 'MIN': 240, 'FGM': 39, 'FGA': 86, 'FG_PCT': 0.45,
+            'FG3M': 13, 'FG3A': 34, 'FG3_PCT': 0.38, 'FTM': 19, 'FTA': 24, 'FT_PCT': 0.79,
+            'OREB': 8, 'DREB': 32, 'REB': 40, 'AST': 25, 'STL': 7, 'BLK': 5, 'TOV': 13, 'PF': 18,
+            'PTS': 110, 'TEAM_ABBR': 'MIA'
+        },
+        'Knicks': {
+            'W': 26, 'L': 17, 'W_PCT': 0.60, 'MIN': 240, 'FGM': 40, 'FGA': 87, 'FG_PCT': 0.46,
+            'FG3M': 12, 'FG3A': 32, 'FG3_PCT': 0.38, 'FTM': 20, 'FTA': 25, 'FT_PCT': 0.80,
+            'OREB': 9, 'DREB': 33, 'REB': 42, 'AST': 24, 'STL': 8, 'BLK': 5, 'TOV': 14, 'PF': 19,
+            'PTS': 112, 'TEAM_ABBR': 'NYK'
+        }
+    }
+    
+    # Get team stats or use defaults if not found
+    home_stats = team_stats.get(home_team_name, team_stats['Lakers'])
+    away_stats = team_stats.get(away_team_name, team_stats['Celtics'])
+    
+    # Get prediction
+    try:
+        if ml_prediction_model is None:
+            raise Exception("ML prediction model not loaded")
+            
+        results = ml_prediction_model.predict(home_stats, away_stats)
+        print(f"Prediction for {home_team_name} vs {away_team_name}: {results}")
+        
+        return {
+            'home_win_probability': float(results['team1_win_prob']),
+            'away_win_probability': float(results['team2_win_prob'])
+        }
+    except Exception as e:
+        print(f"Error predicting winner: {e}")
+        # Fallback to random probabilities that sum to 1
+        home_prob = round(random.uniform(0.4, 0.6), 2)
+        return {
+            'home_win_probability': home_prob,
+            'away_win_probability': round(1 - home_prob, 2)
+        }
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')

@@ -26,6 +26,10 @@ class TransparencyPage extends StatefulWidget {
 
 class _TransparencyPageState extends State<TransparencyPage> {
   int _selectedTabIndex = 0;
+  String _selectedTeamFilter = 'Top'; // For standings
+  String _selectedStatFilter = 'Wins'; // For standings
+  String _selectedFactorFilter = 'All'; // For key factors
+  String _selectedPlayerTeam = 'All'; // For players tab - 'Team1', 'Team2', or 'All'
 
   // Data holders
   bool isLoading = true;
@@ -1276,8 +1280,22 @@ class _TransparencyPageState extends State<TransparencyPage> {
     
     // Parse player impact data if available
     if (playerImpacts.isNotEmpty) {
-      sortedPlayers = playerImpacts.entries.toList()
-        ..sort((a, b) => (b.value as num).compareTo(a.value as num));
+      // Filter players based on selected team
+      var filteredPlayers = playerImpacts.entries.where((entry) {
+        double impact = entry.value is double ? entry.value : 0.0;
+        
+        if (_selectedPlayerTeam == 'All') {
+          return true; // Show all players
+        } else if (_selectedPlayerTeam == 'Team1') {
+          return impact > 0; // Team 1 players have positive impact
+        } else {
+          return impact < 0; // Team 2 players have negative impact
+        }
+      }).toList();
+      
+      // Sort by absolute impact value
+      sortedPlayers = filteredPlayers
+        ..sort((a, b) => (b.value.abs() as num).compareTo(a.value.abs() as num));
     }
     
     final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
@@ -1288,26 +1306,47 @@ class _TransparencyPageState extends State<TransparencyPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Key Player Impact',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isDarkMode ? Colors.white : Colors.black,
-              ),
+            // Team selection toggle
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Key Player Impact',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+                // Team selection segmented control
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildTeamToggleButton('Team1', widget.game.team1Name),
+                      _buildTeamToggleButton('All', 'All'),
+                      _buildTeamToggleButton('Team2', widget.game.team2Name),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             
             if (sortedPlayers.isEmpty)
               Text(
-                'No player impact data available',
+                'No player impact data available for ${_selectedPlayerTeam == "Team1" ? widget.game.team1Name : _selectedPlayerTeam == "Team2" ? widget.game.team2Name : "selected teams"}',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   color: isDarkMode ? Colors.white70 : Colors.black87,
                 ),
               )
             else
-              ...sortedPlayers.take(10).map((entry) => Padding(
+              ...sortedPlayers.map((entry) => Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
                 child: Card(
                   color: isDarkMode ? Colors.grey[800] : Colors.white,
@@ -1338,7 +1377,7 @@ class _TransparencyPageState extends State<TransparencyPage> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            '${((entry.value is double ? entry.value : 0.1) * 100).toStringAsFixed(1)}%',
+                            '${((entry.value.abs() is double ? entry.value.abs() : 0.1) * 100).toStringAsFixed(1)}%',
                             style: GoogleFonts.poppins(fontSize: 12, color: Colors.white),
                           ),
                         ),
@@ -1348,6 +1387,39 @@ class _TransparencyPageState extends State<TransparencyPage> {
                 ),
               )),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Helper method to build a team toggle button
+  Widget _buildTeamToggleButton(String value, String label) {
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    final isSelected = _selectedPlayerTeam == value;
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedPlayerTeam = value;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? (isDarkMode ? Colors.blue[700] : Colors.blue[600])
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected
+                ? Colors.white
+                : (isDarkMode ? Colors.white70 : Colors.black87),
+          ),
         ),
       ),
     );

@@ -526,6 +526,70 @@ def predict_with_performance_factors():
             if inactive_stars:
                 key_factors.append(f"Missing: {', '.join(inactive_stars)}")
                 
+            # Load player team data from CSV
+            player_teams = {}
+            try:
+                player_csv_path = os.path.join('data', 'player_data.csv')
+                if os.path.exists(player_csv_path):
+                    player_df = pd.read_csv(player_csv_path)
+                    # Create mapping of player name to team
+                    for _, row in player_df.iterrows():
+                        if 'PLAYER_NAME' in row and 'TEAM_NAME' in row:
+                            player_teams[row['PLAYER_NAME']] = row['TEAM_NAME']
+            except Exception as e:
+                print(f"Error loading player team data: {e}")
+            
+            # Add player impacts to analysis
+            player_impacts = {}
+            
+            # Create team_players for key_factors
+            team_players_map = {team1_name: [], team2_name: []}
+            
+            # Extract team players from the player data we already loaded
+            for player in team1_players:
+                team_players_map[team1_name].append(player['name'])
+                
+            for player in team2_players:
+                team_players_map[team2_name].append(player['name'])
+            
+            # Add team_players to key_factors
+            key_factors['team_players'] = team_players_map
+            
+            # Select top impact players from both teams
+            impact_players = []
+            # Add top team1 players
+            for player in team1_players[:3]:  # Take top 3 players from team1
+                impact_players.append({
+                    'name': player['name'],
+                    'team': team1_name,
+                    'impact': player['impact_factor']
+                })
+                
+            # Add top team2 players
+            for player in team2_players[:3]:  # Take top 3 players from team2
+                impact_players.append({
+                    'name': player['name'],
+                    'team': team2_name,
+                    'impact': player['impact_factor']
+                })
+                
+            # If we don't have enough players from the teams, add some well-known players
+            # Player impacts will be added later in the code if we have enough
+                for player in additional_players:
+                    if len(impact_players) >= 6:  # Limit to 6 total players
+                        break
+                    impact_players.append(player)
+            
+            # ... (rest of the code remains the same)
+            # Convert to format expected by frontend
+            for player in impact_players:
+                player_name = player['name']
+                player_team = player['team']
+                player_impacts[player_name] = player['impact']
+                
+                # Add team information for each player
+                player_impacts[f"{player_name}_team"] = player_team
+            
             # Return results with explanation data
             return jsonify({
                 'winner': winner,
@@ -1165,7 +1229,11 @@ def get_game_analysis(game_id):
             'team1_strengths': [],
             'team1_weaknesses': [],
             'team2_strengths': [],
-            'team2_weaknesses': []
+            'team2_weaknesses': [],
+            'team_players': {
+                team1_name: [p['name'] for p in team1_players],
+                team2_name: [p['name'] for p in team2_players]
+            }
         }
         
         # Compare offensive output

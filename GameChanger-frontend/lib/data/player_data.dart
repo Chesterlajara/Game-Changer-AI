@@ -104,17 +104,31 @@ class PlayerData {
   // Process CSV content and convert to PlayerData objects
   static Map<String, List<PlayerData>> _processCsvContent(String csvContent) {
     final Map<String, List<PlayerData>> playersByTeam = {};
+    final Set<String> teamAbbreviationsFound = {};
     
     try {
+      print('Processing CSV content, length: ${csvContent.length} chars');
+      
       // Parse CSV
       List<List<dynamic>> rowsAsListOfValues = const CsvToListConverter().convert(csvContent, eol: '\n');
+      print('CSV rows parsed: ${rowsAsListOfValues.length}');
+      
+      if (rowsAsListOfValues.isNotEmpty) {
+        // Print headers to understand the CSV structure
+        print('CSV Headers: ${rowsAsListOfValues[0]}');
+      }
       
       // Skip header row
       for (int i = 1; i < rowsAsListOfValues.length; i++) {
         final row = rowsAsListOfValues[i];
-        if (row.length < 19) continue; // Skip invalid rows
+        if (row.length < 19) {
+          print('Skipping invalid row $i, length: ${row.length}');
+          continue; // Skip invalid rows
+        }
         
         final String teamAbbreviation = row[4].toString();
+        teamAbbreviationsFound.add(teamAbbreviation);
+        
         final String playerId = row[1].toString();
         final String playerName = row[2].toString();
         final String teamId = row[3].toString();
@@ -155,6 +169,20 @@ class PlayerData {
       }
       
       print('Successfully loaded ${playersByTeam.length} teams from CSV');
+      
+      // Print team abbreviations and player counts for debugging
+      print('===== TEAMS FOUND IN CSV =====');
+      print('Team abbreviations found in CSV: ${teamAbbreviationsFound.toList().join(', ')}');
+      for (var team in playersByTeam.keys) {
+        print('Team $team has ${playersByTeam[team]?.length ?? 0} players');
+        // Print a few player names as sample
+        if ((playersByTeam[team]?.length ?? 0) > 0) {
+          final samplePlayers = playersByTeam[team]!.take(3).map((p) => p.playerName).join(', ');
+          print('  Sample players: $samplePlayers');
+        }
+      }
+      print('=============================');
+      
       return playersByTeam;
     } catch (e) {
       print('Error processing CSV content: $e');

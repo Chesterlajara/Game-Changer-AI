@@ -334,11 +334,11 @@ def predict_with_performance_factors():
                         pts = float(player_row['PTS'].values[0])
                         reb = float(player_row['REB'].values[0])
                         ast = float(player_row['AST'].values[0])
-                        stl = float(player_row['STL'].values[0])
-                        blk = float(player_row['BLK'].values[0])
                         
-                        # Calculate impact (50% points, 10% rebounds, 20% assists, 10% steals, 10% blocks)
-                        raw_impact = (0.5 * pts + 0.1 * reb + 0.2 * ast + 0.1 * stl + 0.1 * blk) / 100.0
+                        # Calculate impact with updated weights: 70% points, 10% rebounds, 20% assists
+                        raw_impact = (0.7 * pts + 0.1 * reb + 0.2 * ast) / 100.0
+                        print(f"Player {player_name} stats: PTS={pts}, REB={reb}, AST={ast}")
+                        print(f"Raw impact calculation: (0.7 * {pts} + 0.1 * {reb} + 0.2 * {ast}) / 100.0 = {raw_impact}")
                         impact = min(max(raw_impact, 0.01), 0.20)  # Clamp between 1% and 20%
                         
                         # Special case for Isaac Okoro and other Cleveland players

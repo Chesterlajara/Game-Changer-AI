@@ -114,11 +114,12 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
   // Calculate a player's impact factor based on stats if not provided by API
   double _calculatePlayerImpactFactor(PlayerData player) {
     // Use the same formula as the backend
-    // New weights: 50% points, 20% assists, 10% rebounds, 10% steals, 10% blocks
-    double rawImpact = (0.5 * player.points + 0.1 * player.rebounds + 
-                        0.2 * player.assists + 0.1 * player.steals + 
-                        0.1 * player.blocks) / 100.0;
-    
+    // Updated weights: 70% points, 10% rebounds, 20% assists
+    double rawImpact = (0.7 * player.points + 0.1 * player.rebounds + 
+                        0.2 * player.assists) / 100.0;
+  
+    print('Player ${player.playerName} impact calculation: (0.7 * ${player.points} + 0.1 * ${player.rebounds} + 0.2 * ${player.assists}) / 100.0 = $rawImpact');
+  
     // Clamp between 0.01 and 0.20 as the backend does
     return double.parse((rawImpact.clamp(0.01, 0.20)).toStringAsFixed(3));
   }

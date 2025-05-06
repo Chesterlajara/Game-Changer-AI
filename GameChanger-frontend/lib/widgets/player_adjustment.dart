@@ -114,7 +114,8 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
   // Calculate a player's impact factor based on stats if not provided by API
   double _calculatePlayerImpactFactor(PlayerData player) {
     // Use the same formula as the backend
-    double rawImpact = (0.4 * player.points + 0.2 * player.rebounds + 
+    // New weights: 50% points, 20% assists, 10% rebounds, 10% steals, 10% blocks
+    double rawImpact = (0.5 * player.points + 0.1 * player.rebounds + 
                         0.2 * player.assists + 0.1 * player.steals + 
                         0.1 * player.blocks) / 100.0;
     

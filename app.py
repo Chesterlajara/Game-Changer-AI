@@ -310,8 +310,9 @@ def predict_with_performance_factors():
                 if player_name in ['LaMelo Ball', 'Terry Rozier']:
                     print(f"Debug stats for {player_name}: PTS={pts}, REB={reb}, AST={ast}, STL={stl}, BLK={blk}")
                 
-                # Weighted impact calculation - keeping divisor consistent at 100
-                raw_impact = (0.4 * pts + 0.2 * reb + 0.2 * ast + 0.1 * stl + 0.1 * blk)
+                # Weighted impact calculation with updated weights - keeping divisor consistent at 100
+                # New weights: 50% points, 20% assists, 10% rebounds, 10% steals, 10% blocks
+                raw_impact = (0.5 * pts + 0.1 * reb + 0.2 * ast + 0.1 * stl + 0.1 * blk)
                 impact_factor = raw_impact / 100.0
                 
                 # Make sure impact is at least 1% and at most 20%

@@ -5,6 +5,7 @@ import datetime
 
 # Import the TeamPredictionModel
 from ml_models.predict_winner import TeamPredictionModel
+from ml_models import player_availability, performance_factors
 from ml_models.player_availability import remove_players_and_get_team_data
 
 # Import other models
@@ -145,6 +146,296 @@ def predict_teams():
         })
     except Exception as e:
         print(f"Error in predict_teams: {e}")
+        return jsonify({
+            'error': str(e),
+            'winner': 'Unknown',
+            'team1_win_prob': 0.5,
+            'team2_win_prob': 0.5
+        }), 500
+
+@app.route('/predict-with-performance-factors', methods=['POST'])
+def predict_with_performance_factors():
+    try:
+        data = request.get_json()
+        team1_name = data.get('team1')
+        team2_name = data.get('team2')
+        inactive_players = data.get('inactive_players', {})  # Map of player_name to boolean
+        performance_factor_values = data.get('performance_factors', {})
+        
+        if not team1_name or not team2_name:
+            return jsonify({'error': 'Both team names are required'}), 400
+        
+        # First get baseline prediction without considering player availability or performance factors
+        baseline_prediction = get_prediction_for_teams(team1_name, team2_name)
+        
+        # Get team abbreviations
+        team1_abbr = None
+        team2_abbr = None
+        nba_teams = teams.get_teams()
+        inverse_mapping = {team['full_name'].lower(): team['abbreviation'] for team in nba_teams}
+        
+        # Try to find team abbreviations
+        if team1_name.lower() in inverse_mapping:
+            team1_abbr = inverse_mapping[team1_name.lower()]
+        else:
+            for name, abbr in inverse_mapping.items():
+                if team1_name.lower() in name.lower():
+                    team1_abbr = abbr
+                    break
+        
+        if team2_name.lower() in inverse_mapping:
+            team2_abbr = inverse_mapping[team2_name.lower()]
+        else:
+            for name, abbr in inverse_mapping.items():
+                if team2_name.lower() in name.lower():
+                    team2_abbr = abbr
+                    break
+        
+        # 1. Apply player availability adjustments
+        player_impacts = {}
+        team1_player_impact = 0
+        team2_player_impact = 0
+        
+        try:
+            # Get players from CSV data
+            player_df = pd.read_csv("ml_models/updated_player_data.csv")
+            
+            # Process each player and calculate impact
+            for index, row in player_df.iterrows():
+                player_name = row['PLAYER_NAME']
+                team_abbr = row['TEAM_ABBREVIATION']
+                
+                # Skip if player not in inactive_players dict
+                if player_name not in inactive_players:
+                    continue
+                
+                # Calculate impact factor based on player stats
+                pts = row['PTS']
+                reb = row['REB']
+                ast = row['AST']
+                stl = row['STL']
+                blk = row['BLK']
+                
+                # Weighted impact calculation
+                impact_factor = (0.4 * pts + 0.2 * reb + 0.2 * ast + 0.1 * stl + 0.1 * blk) / 100
+                impact_factor = min(max(impact_factor, 0.01), 0.20)  # Clamp between 1-20%
+                
+                player_impacts[player_name] = impact_factor
+                
+                # Only add to team impact if player is inactive
+                is_inactive = inactive_players.get(player_name, False)
+                if is_inactive:
+                    if team_abbr == team1_abbr:
+                        team1_player_impact += impact_factor
+                    elif team_abbr == team2_abbr:
+                        team2_player_impact += impact_factor
+        except Exception as e:
+            print(f"Error calculating player impacts: {e}")
+            # Continue with performance factors even if player impacts fail
+        
+        # 2. Get performance factors data from the team_data CSV
+        try:
+            # Get team data from CSV
+            team1_data = performance_factors.get_team_data_from_csv(team1_abbr)
+            team2_data = performance_factors.get_team_data_from_csv(team2_abbr)
+            
+            # Determine home team
+            home_team = 0  # 0 = neutral, 1 = team1 home, 2 = team2 home
+            if team1_data['is_home'] and not team2_data['is_home']:
+                home_team = 1
+            elif team2_data['is_home'] and not team1_data['is_home']:
+                home_team = 2
+            
+            # Set up performance factor values
+            perf_factors = {
+                'home_court_advantage': performance_factor_values.get('home_court_advantage', 5),
+                'rest_days_impact': performance_factor_values.get('rest_days_impact', 5),
+                'recent_form_weight': performance_factor_values.get('recent_form_weight', 5),
+                'home_team': home_team,
+                'team1_rest_days': team1_data['rest_days'],
+                'team2_rest_days': team2_data['rest_days'],
+                'team1_recent_wins': team1_data['recent_wins'],
+                'team1_recent_losses': team1_data['recent_losses'],
+                'team2_recent_wins': team2_data['recent_wins'],
+                'team2_recent_losses': team2_data['recent_losses']
+            }
+            
+            # Apply player impacts to base probabilities
+            team1_win_prob = baseline_prediction['team1_win_probability'] * (1 - team1_player_impact)
+            team2_win_prob = baseline_prediction['team2_win_probability'] * (1 - team2_player_impact)
+            
+            # Normalize probabilities after player impacts
+            total = team1_win_prob + team2_win_prob
+            team1_win_prob = team1_win_prob / total
+            team2_win_prob = team2_win_prob / total
+            
+            # Apply performance factors
+            adjusted_probs = performance_factors.apply_performance_factors(
+                team1_win_prob, team2_win_prob, perf_factors
+            )
+            
+            # Final adjusted probabilities
+            final_team1_win_prob = adjusted_probs[0]
+            final_team2_win_prob = adjusted_probs[1]
+            
+            # Determine winner
+            winner = team1_name if final_team1_win_prob > final_team2_win_prob else team2_name
+            
+            # Generate explanation data based on team stats and factors
+            # Compare team stats to determine strengths and weaknesses
+            team1_strengths = []
+            team2_strengths = []
+            team1_weaknesses = []
+            team2_weaknesses = []
+            
+            # Use fallback data if available
+            if team1_name in fallback_team_data and team2_name in fallback_team_data:
+                team1_fb = fallback_team_data[team1_name]
+                team2_fb = fallback_team_data[team2_name]
+                
+                # Offensive comparison
+                if team1_fb['PTS'] > team2_fb['PTS']:
+                    team1_strengths.append('Superior offensive output')
+                    team2_weaknesses.append('Lower scoring average')
+                else:
+                    team2_strengths.append('Superior offensive output')
+                    team1_weaknesses.append('Lower scoring average')
+                
+                # Rebounding comparison
+                if team1_fb['REB'] > team2_fb['REB']:
+                    team1_strengths.append('Better rebounding')
+                    team2_weaknesses.append('Weaker rebounding')
+                else:
+                    team2_strengths.append('Better rebounding')
+                    team1_weaknesses.append('Weaker rebounding')
+                    
+                # Assists comparison
+                if team1_fb['AST'] > team2_fb['AST']:
+                    team1_strengths.append('Superior ball movement')
+                    team2_weaknesses.append('Less team assists')
+                else:
+                    team2_strengths.append('Superior ball movement')
+                    team1_weaknesses.append('Less team assists')
+                    
+                # 3pt shooting 
+                if team1_fb['FG3_PCT'] > team2_fb['FG3_PCT']:
+                    team1_strengths.append('Better 3-point shooting')
+                    team2_weaknesses.append('Lower 3-point percentage')
+                else:
+                    team2_strengths.append('Better 3-point shooting')
+                    team1_weaknesses.append('Lower 3-point percentage')
+                    
+                # Defense metrics (turnovers forced)
+                if team1_fb['STL'] > team2_fb['STL']:
+                    team1_strengths.append('More active defense')
+                    team2_weaknesses.append('Susceptible to turnovers')
+                else:
+                    team2_strengths.append('More active defense')
+                    team1_weaknesses.append('Susceptible to turnovers')
+                    
+                # Interior defense
+                if team1_fb['BLK'] > team2_fb['BLK']:
+                    team1_strengths.append('Stronger interior defense')
+                    team2_weaknesses.append('Weaker rim protection')
+                else:
+                    team2_strengths.append('Stronger interior defense')
+                    team1_weaknesses.append('Weaker rim protection')
+            else:
+                # Generic strengths/weaknesses if team stats unavailable
+                team1_strengths = ['Experience in close games', 'Offensive efficiency', 'Ball movement']
+                team2_strengths = ['Strong defense', 'Rebounding advantage', 'Perimeter shooting']
+                team1_weaknesses = ['Inconsistent defense', 'Poor rebounding', 'Turnovers']
+                team2_weaknesses = ['Inconsistent scoring', 'Poor free throw shooting', 'Lack of depth']
+            
+            # Add context from performance factors
+            if home_team == 1:
+                team1_strengths.append('Home court advantage')
+            elif home_team == 2:
+                team2_strengths.append('Home court advantage')
+                
+            if team1_data['rest_days'] > team2_data['rest_days']:
+                team1_strengths.append(f"{team1_data['rest_days']} days rest advantage")
+                team2_weaknesses.append('Less rest between games')
+            elif team2_data['rest_days'] > team1_data['rest_days']:
+                team2_strengths.append(f"{team2_data['rest_days']} days rest advantage")
+                team1_weaknesses.append('Less rest between games')
+                
+            team1_recent_form = team1_data['recent_wins'] / (team1_data['recent_wins'] + team1_data['recent_losses'])
+            team2_recent_form = team2_data['recent_wins'] / (team2_data['recent_wins'] + team2_data['recent_losses'])
+            
+            if team1_recent_form > team2_recent_form:
+                team1_strengths.append('Better recent form')
+                team2_weaknesses.append('Poor recent performance')
+            elif team2_recent_form > team1_recent_form:
+                team2_strengths.append('Better recent form')
+                team1_weaknesses.append('Poor recent performance')
+                
+            # Add player impact context
+            inactive_stars = []
+            for player_name, impact in player_impacts.items():
+                if impact > 0.10 and player_name in inactive_players and inactive_players[player_name]:
+                    if player_name in team1_name.lower():
+                        team2_strengths.append(f"{player_name} unavailable for opponent")
+                        inactive_stars.append(f"{player_name} ({team1_name})")
+                    else:
+                        team1_strengths.append(f"{player_name} unavailable for opponent")
+                        inactive_stars.append(f"{player_name} ({team2_name})")
+            
+            # Make prediction explanation
+            winner_name = team1_name if final_team1_win_prob > final_team2_win_prob else team2_name
+            loser_name = team2_name if final_team1_win_prob > final_team2_win_prob else team1_name
+            winner_strengths = team1_strengths if final_team1_win_prob > final_team2_win_prob else team2_strengths
+            loser_weaknesses = team2_weaknesses if final_team1_win_prob > final_team2_win_prob else team1_weaknesses
+            
+            # Generate key factors for explanation
+            key_factors = []
+            
+            # Add 2-3 winner strengths
+            for strength in winner_strengths[:2]:
+                key_factors.append(strength)
+                
+            # Add 1-2 loser weaknesses
+            for weakness in loser_weaknesses[:1]:
+                key_factors.append(weakness)
+                
+            # Add star player impact if relevant
+            if inactive_stars:
+                key_factors.append(f"Missing: {', '.join(inactive_stars)}")
+                
+            # Return results with explanation data
+            return jsonify({
+                'winner': winner,
+                'team1_win_prob': final_team1_win_prob,
+                'team2_win_prob': final_team2_win_prob,
+                'player_impacts': player_impacts,
+                'performance_factors': {
+                    'home_team': home_team,
+                    'team1_rest_days': team1_data['rest_days'],
+                    'team2_rest_days': team2_data['rest_days'],
+                    'team1_recent_form': team1_recent_form,
+                    'team2_recent_form': team2_recent_form
+                },
+                'explanation': {
+                    'key_factors': key_factors,
+                    'team1_strengths': team1_strengths,
+                    'team2_strengths': team2_strengths,
+                    'team1_weaknesses': team1_weaknesses,
+                    'team2_weaknesses': team2_weaknesses
+                }
+            })
+            
+        except Exception as e:
+            print(f"Error applying performance factors: {e}")
+            # Fall back to baseline prediction if performance factors fail
+            return jsonify({
+                'winner': team1_name if baseline_prediction['team1_win_probability'] > baseline_prediction['team2_win_probability'] else team2_name,
+                'team1_win_prob': baseline_prediction['team1_win_probability'],
+                'team2_win_prob': baseline_prediction['team2_win_probability'],
+                'error': f"Performance factors calculation error: {str(e)}"
+            })
+    
+    except Exception as e:
+        print(f"Error in predict_with_performance_factors: {e}")
         return jsonify({
             'error': str(e),
             'winner': 'Unknown',

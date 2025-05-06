@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-import '../models/prediction_model.dart';
-import '../widgets/team_selection.dart';
-import '../widgets/player_adjustment.dart';
-import '../widgets/performance_factor.dart';
-import '../widgets/prediction_card.dart';
-import '../providers/theme_provider.dart';
+import 'package:provider/provider.dart';
 import '../data/nba_teams.dart';
 import '../data/player_data.dart';
 import '../services/prediction_service.dart';
+import '../widgets/team_selection.dart';
+import '../widgets/player_adjustment.dart';
+import '../widgets/performance_factors_card.dart';
+import '../widgets/prediction_card.dart';
+import '../widgets/prediction_insights_card.dart';
+import '../providers/theme_provider.dart';
+import '../models/prediction_model.dart';
 
 class ExperimentPage extends StatefulWidget {
   const ExperimentPage({super.key});
@@ -31,14 +31,22 @@ class _ExperimentPageState extends State<ExperimentPage> {
   Map<String, double> playerImpactFactors = {};
 
   // Performance factors
-  double homeCourtAdvantage = 5;
-  double restDaysImpact = 5;
-  double recentFormWeight = 5;
+  Map<String, int> performanceFactors = {
+    'home_court_advantage': 5,
+    'rest_days_impact': 5,
+    'recent_form_weight': 5,
+  };
   
   // Win probability
-  double team1WinProbability = 0.5; // Default 50%
-  double team2WinProbability = 0.5; // Default 50%
+  double team1WinProbability =.5; // Default 50%
+  double team2WinProbability = .5; // Default 50%
   bool isLoadingPrediction = false;
+  
+  // Explanation data
+  Map<String, dynamic> team1Stats = {};
+  Map<String, dynamic> team2Stats = {};
+  Map<String, dynamic> explanationData = {};
+  Map<String, dynamic> performanceFactorData = {};
 
   // Use all NBA team names from our data file
   List<String> sampleTeams = NbaTeams.getAllTeamNames();
@@ -65,15 +73,18 @@ class _ExperimentPageState extends State<ExperimentPage> {
       selectedTeam2 = null;
       selectedTeamForAdjustment = null;
       playerAdjustments.clear();
-      homeCourtAdvantage = 5;
-      restDaysImpact = 5;
-      recentFormWeight = 5;
+      playerImpactFactors.clear();
+      performanceFactors = {
+        'home_court_advantage': 5,
+        'rest_days_impact': 5,
+        'recent_form_weight': 5,
+      };
       team1WinProbability = 0.5;
       team2WinProbability = 0.5;
     });
   }
   
-  // Method to fetch prediction when teams are selected
+  // Method to fetch prediction when teams are selected or factors change
   Future<void> updatePrediction() async {
     if (selectedTeam1 == null || selectedTeam2 == null) {
       return; // Can't predict without both teams
@@ -84,14 +95,15 @@ class _ExperimentPageState extends State<ExperimentPage> {
     });
     
     try {
-      // Always use player availability prediction to calculate impact factors
-      final result = await PredictionService.predictWithPlayerAvailability(
+      // Use the new predictWithPerformanceFactors endpoint
+      final result = await PredictionService.predictWithPerformanceFactors(
         selectedTeam1!,
         selectedTeam2!,
         playerAdjustments,
+        performanceFactors,
       );
       
-      print('Got prediction result: $result');
+      print('Got prediction result with performance factors: $result');
       
       setState(() {
         // Update win probabilities
@@ -113,10 +125,22 @@ class _ExperimentPageState extends State<ExperimentPage> {
           });
         }
         
+        // Store performance factors data if available
+        if (result.containsKey('performance_factors')) {
+          performanceFactorData = result['performance_factors'] as Map<String, dynamic>;
+          print('Performance factors data: $performanceFactorData');
+        }
+        
+        // Store explanation data if available
+        if (result.containsKey('explanation')) {
+          explanationData = result['explanation'] as Map<String, dynamic>;
+          print('Explanation data: $explanationData');
+        }
+        
         isLoadingPrediction = false;
       });
     } catch (e) {
-      print('Error getting prediction: $e');
+      print('Error getting prediction with performance factors: $e');
       setState(() {
         isLoadingPrediction = false;
       });
@@ -497,29 +521,35 @@ class _ExperimentPageState extends State<ExperimentPage> {
               
               const SizedBox(height: 16),
               
+              // Performance factors card
               PerformanceFactorsCard(
-                homeCourtAdvantage: homeCourtAdvantage,
-                restDaysImpact: restDaysImpact,
-                recentFormWeight: recentFormWeight,
-                onHomeCourtChanged: (value) => setState(() => homeCourtAdvantage = value),
-                onRestDaysChanged: (value) => setState(() => restDaysImpact = value),
-                onRecentFormChanged: (value) => setState(() => recentFormWeight = value),
+                performanceFactors: performanceFactors,
+                onFactorChanged: (factorName, value) {
+                  setState(() {
+                    performanceFactors[factorName] = value;
+                  });
+                  // Update prediction when a performance factor changes
+                  updatePrediction();
+                },
               ),
               
               const SizedBox(height: 16),
               
               if (selectedTeam1 != null && selectedTeam2 != null) ...[
-                PredictionCard(
-                  prediction: Prediction(
-                      team1Name: selectedTeam1!,
-                      team2Name: selectedTeam2!,
-                      team1LogoPath: '${selectedTeam1!.toLowerCase().replaceAll(' ', '_')}_logo.png',
-                      team2LogoPath: '${selectedTeam2!.toLowerCase().replaceAll(' ', '_')}_logo.png',
-                      team1WinProbability: 0.5,
-                      team2WinProbability: 0.5,
-                      keyFactors: ['Strong defense', 'Home advantage', 'Star player returning']
+                // Detailed insights card showing why the prediction was made
+                if (!isLoadingPrediction) ...[
+                  PredictionInsightsCard(
+                    team1Name: selectedTeam1!,
+                    team2Name: selectedTeam2!,
+                    team1WinProb: team1WinProbability,
+                    team2WinProb: team2WinProbability,
+                    team1Stats: team1Stats,
+                    team2Stats: team2Stats,
+                    performanceFactors: performanceFactorData,
+                    playerImpacts: playerImpactFactors,
                   ),
-                ),
+                  const SizedBox(height: 16),
+                ],
               ],
             ],
           ),

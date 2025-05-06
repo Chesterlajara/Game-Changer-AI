@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // Import for formatting time
-
-
+import 'package:intl/intl.dart';
 import '../models/game_model.dart';
+import '../utils/logo_helper.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/theme_provider.dart';
 import '../screens/analysis/transparency_page.dart'; // Import the new page
 import 'package:google_fonts/google_fonts.dart';
@@ -26,46 +26,10 @@ class GameCard extends StatelessWidget {
     return DateFormat('h:mm a').format(dt); // e.g., 8:00 AM
   }
  
-  // Helper to build team logo from URL
+  // Helper to build team logo from URL or team name
   Widget _buildTeamLogo(String logoPath, double size) {
-    // Check if the path is a URL
-    if (logoPath.startsWith('http')) {
-      // It's a network image
-      return Image.network(
-        logoPath,
-        height: size,
-        width: size,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return Icon(Icons.sports_basketball, color: Colors.grey, size: size * 0.6);
-        },
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                  : null,
-              strokeWidth: 2,
-            ),
-          );
-        },
-      );
-    } else if (logoPath.isNotEmpty) {
-      // It's a local asset
-      return Image.asset(
-        'assets/logos/$logoPath',
-        height: size,
-        width: size,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return Icon(Icons.sports_basketball, color: Colors.grey, size: size * 0.6);
-        },
-      );
-    } else {
-      // Fallback for empty path
-      return Icon(Icons.sports_basketball, color: Colors.grey, size: size * 0.6);
-    }
+    // Use the unified LogoHelper to handle logo loading and fallbacks
+    return LogoHelper.buildTeamLogo(logoPath, size);
   }
 
 

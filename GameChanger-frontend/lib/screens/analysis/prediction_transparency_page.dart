@@ -18,15 +18,137 @@ class PredictionTransparencyPage extends StatefulWidget {
 class _TransparencyPageState extends State<PredictionTransparencyPage> {
   int _selectedTabIndex = 0;
 
+  // Helper method to get local logo path based on team name or abbreviation
+  String _getLocalLogoPath(String teamNameOrPath) {
+    // Extract team name from the path or URL if needed
+    String teamName = teamNameOrPath.toLowerCase();
+    
+    // Extract team name from NBA CDN URLs
+    if (teamName.contains('cdn.nba.com')) {
+      // Extract team ID from the URL path
+      RegExp teamIdRegex = RegExp(r'nba/(\d+)/global');
+      var match = teamIdRegex.firstMatch(teamName);
+      
+      if (match != null) {
+        String teamId = match.group(1) ?? '';
+        // Map NBA team IDs to team names
+        Map<String, String> teamIdMap = {
+          '1610612747': 'okc', // Thunder
+          '1610612742': 'dallas', // Mavericks
+          '1610612744': 'gsw', // Warriors
+          '1610612751': 'nets', // Nets
+          '1610612745': 'nba-houston-rockets-logo-2020', // Rockets
+          '1610612759': 'spurs', // Spurs
+          '1610612748': 'miami heat', // Heat
+          '1610612752': 'knicks', // Knicks
+          // Add more mappings as needed
+        };
+        
+        if (teamIdMap.containsKey(teamId)) {
+          return teamIdMap[teamId]!;
+        }
+      }
+    }
+    
+    // Process common team names or abbreviations
+    if (teamName.contains('warriors')) return 'gsw';
+    if (teamName.contains('lakers')) return 'lakers';
+    if (teamName.contains('heat')) return 'miami heat';
+    if (teamName.contains('celtics')) return 'celtics';
+    if (teamName.contains('mav')) return 'dallas';
+    if (teamName.contains('thunder') || teamName.contains('okc')) return 'okc';
+    if (teamName.contains('net')) return 'nets';
+    if (teamName.contains('spur')) return 'spurs';
+    if (teamName.contains('knick')) return 'knicks';
+    if (teamName.contains('rocket')) return 'nba-houston-rockets-logo-2020';
+    if (teamName.contains('jazz')) return 'jazz';
+    if (teamName.contains('buck')) return 'bucks';
+    if (teamName.contains('cav')) return 'cavs';
+    if (teamName.contains('bull')) return 'chicago bulls';
+    if (teamName.contains('clippers')) return 'clippers';
+    if (teamName.contains('grizzl')) return 'grizzlies';
+    if (teamName.contains('hawk')) return 'hawks';
+    if (teamName.contains('hornet')) return 'hornets';
+    if (teamName.contains('king')) return 'kings';
+    if (teamName.contains('nugget')) return 'nuggets';
+    if (teamName.contains('magic')) return 'orlando magic';
+    if (teamName.contains('pacer')) return 'pacers';
+    if (teamName.contains('suns') || teamName.contains('phoenix')) return 'phoenix suns';
+    if (teamName.contains('piston')) return 'pistons';
+    if (teamName.contains('raptor')) return 'raptors';
+    if (teamName.contains('sixers') || teamName.contains('76ers')) return 'sixers';
+    if (teamName.contains('wolves') || teamName.contains('timberwolves')) return 'timberwolves';
+    if (teamName.contains('blazers')) return 'trail blazers';
+    if (teamName.contains('wizard')) return 'wizards';
+    if (teamName.contains('pelican') || teamName.contains('new orleans')) return 'new orleans';
+    
+    // Default fallback
+    return teamNameOrPath;
+  }
+  
+  // Build logo with default size (convenience method)
+  Widget _buildLogoWithDefaultSize(String logoPath) {
+    return _buildLogo(logoPath, 80.0);
+  }
+
   Widget _buildLogo(String logoPath, double size) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Image.asset(
-        'assets/logos/$logoPath',
+    // Debug what path we received
+    print('PredictionTransparencyPage logo path: $logoPath');
+    
+    // Wrapper for consistent size
+    Widget buildSizedBox(Widget child) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: child,
+      );
+    }
+
+    // Handle empty path
+    if (logoPath.isEmpty) {
+      print('Empty logo path in PredictionTransparencyPage');
+      return buildSizedBox(Icon(Icons.sports_basketball, size: size * 0.8, color: Colors.grey));
+    }
+    
+    // Whether it's a CDN URL or team name, map to local assets
+    String localLogoName = _getLocalLogoPath(logoPath);
+    String assetPath = 'assets/logos/$localLogoName.png';
+    
+    print('PredictionTransparencyPage using local logo: $assetPath');
+    return buildSizedBox(
+      Image.asset(
+        assetPath,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
-          return Icon(Icons.sports_basketball, size: size * 0.8, color: Colors.grey);
+          print('PredictionTransparencyPage local logo error: $assetPath - $error');
+          // Try without .png extension - some files might not have it
+          String altPath = 'assets/logos/$localLogoName';
+          print('PredictionTransparencyPage trying alternate path: $altPath');
+          return Image.asset(
+            altPath,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) {
+              print('PredictionTransparencyPage alternate path error, using fallback icon');
+              // Display first letter of team name as fallback
+              String teamInitial = logoPath.isNotEmpty ? logoPath[0].toUpperCase() : '?';
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    teamInitial,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: size * 0.5,
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
         },
       ),
     );

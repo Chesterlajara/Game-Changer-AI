@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../models/prediction_model.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import '../models/prediction_model.dart';
 import '../providers/theme_provider.dart';
+import '../utils/logo_helper.dart';
 import '../screens/analysis/prediction_transparency_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -10,6 +11,19 @@ class PredictionCard extends StatelessWidget {
   final Prediction prediction;
 
   const PredictionCard({super.key, required this.prediction});
+  
+  // Helper to build team logo with border
+  Widget _buildTeamLogo(String logoPath, double size, Color borderColor) {
+    // Use the unified LogoHelper to handle logo loading, but wrap in a bordered container
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: LogoHelper.buildTeamLogo(logoPath, size),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,21 +91,7 @@ class PredictionCard extends StatelessWidget {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: cardBorderColor, width: 1),
-                      ),
-                      child: Image.asset(
-                        'assets/logos/${prediction.team1LogoPath}',
-                        height: 40,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(Icons.error_outline, color: Colors.red, size: 20);
-                        },
-                      ),
-                    ),
+                    _buildTeamLogo(prediction.team1LogoPath, 40, cardBorderColor),
                     const SizedBox(height: 5),
                     Text(
                       prediction.team1Name,
@@ -156,21 +156,7 @@ class PredictionCard extends StatelessWidget {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: cardBorderColor, width: 1),
-                      ),
-                      child: Image.asset(
-                        'assets/logos/${prediction.team2LogoPath}',
-                        height: 40,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(Icons.error_outline, color: Colors.red, size: 20);
-                        },
-                      ),
-                    ),
+                    _buildTeamLogo(prediction.team2LogoPath, 40, cardBorderColor),
                     const SizedBox(height: 5),
                     Text(
                       prediction.team2Name,

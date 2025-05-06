@@ -205,9 +205,11 @@ def predict_with_performance_factors():
                 player_name = row['PLAYER_NAME']
                 team_abbr = row['TEAM_ABBREVIATION']
                 
-                # Skip if player not in inactive_players dict
-                if player_name not in inactive_players:
-                    continue
+                # We want to calculate impact for all players, even if not in inactive_players dict
+                # This ensures impacts are calculated when the page first loads
+                # if player_name not in inactive_players:
+                #    continue
+                # Instead, we'll process all players
                 
                 # Calculate impact factor based on player stats
                 pts = row['PTS']

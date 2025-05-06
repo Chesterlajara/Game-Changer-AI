@@ -81,6 +81,8 @@ class _ExperimentPageState extends State<ExperimentPage> {
       };
       team1WinProbability = 0.5;
       team2WinProbability = 0.5;
+      explanationData.clear();
+      performanceFactorData.clear();
     });
   }
   

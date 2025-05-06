@@ -455,10 +455,203 @@ class _TransparencyPageState extends State<TransparencyPage> {
   }
 
   Widget _buildKeyFactorsTab() {
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Hexagon radar chart comparing team stats
+                  TeamStatsHexagon(
+                    team1Name: widget.game.team1Name,
+                    team1Stats: team1Stats,
+                    team1RawStats: team1RawStats,
+                    team2Name: widget.game.team2Name,
+                    team2Stats: team2Stats,
+                    team2RawStats: team2RawStats,
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Head-to-head statistical comparison
+                  _buildStatsComparisonTable(),
+                  const SizedBox(height: 24),
+                  
+                  // Key Factors Explanation card
+                  _buildKeyFactorsExplanation(),
+                  const SizedBox(height: 24),
+                  
+                  // Player impact visualization
+                  _buildPlayerImpactVisualization(),
+                ],
+              ),
+            ),
+    );
+  }
+  
+  Widget _buildStatsComparisonTable() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
+    // Text styles
+    final headerStyle = GoogleFonts.poppins(
+      fontSize: 14,
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+    );
+    
+    final statLabelStyle = GoogleFonts.poppins(
+      fontSize: 12,
+      color: isDark ? Colors.white70 : Colors.grey[800],
+    );
+    
+    final statValueStyle = GoogleFonts.poppins(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: isDark ? Colors.white : Colors.black,
+    );
+    
+    // Determine which stats to compare
+    final comparisonStats = [
+      {'label': 'Points Per Game', 'team1Key': 'PPG', 'team2Key': 'PPG', 'format': '%.1f'},
+      {'label': '3-Point %', 'team1Key': '3PT', 'team2Key': '3PT', 'format': '%.1f%%'},
+      {'label': 'Rebounds', 'team1Key': 'REB', 'team2Key': 'REB', 'format': '%.1f'},
+      {'label': 'Assists', 'team1Key': 'AST', 'team2Key': 'AST', 'format': '%.1f'},
+      {'label': 'Steals', 'team1Key': 'STL', 'team2Key': 'STL', 'format': '%.1f'},
+      {'label': 'Blocks', 'team1Key': 'BLK', 'team2Key': 'BLK', 'format': '%.1f'},
+      {'label': 'Win %', 'team1Key': 'W_PCT', 'team2Key': 'W_PCT', 'format': '%.3f'},
+    ];
+    
+    return Card(
+      color: isDark ? Colors.grey[850] : Colors.white,
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Statistical Comparison', style: headerStyle),
+            const SizedBox(height: 12),
+            
+            // Team headers
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.game.team1Name,
+                    style: headerStyle.copyWith(fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Stat',
+                    style: headerStyle.copyWith(fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    widget.game.team2Name,
+                    style: headerStyle.copyWith(fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            
+            // Head-to-head comparison rows
+            ...comparisonStats.map((stat) {
+              // Get values with fallback to 0
+              final team1Value = team1RawStats[stat['team1Key']] ?? 0.0;
+              final team2Value = team2RawStats[stat['team2Key']] ?? 0.0;
+              
+              // Determine which team has the advantage for this stat
+              final team1Better = team1Value > team2Value;
+              
+              // Format the values according to the format string
+              final formatStr = stat['format'] as String;
+              final team1Str = formatStr.contains('%%') 
+                  ? formatStr.replaceFirst('%%', '%').replaceAll('%.1f', '${team1Value.toStringAsFixed(1)}')
+                  : formatStr.replaceAll('%.1f', '${team1Value.toStringAsFixed(1)}').replaceAll('%.3f', '${team1Value.toStringAsFixed(3)}');
+                  
+              final team2Str = formatStr.contains('%%') 
+                  ? formatStr.replaceFirst('%%', '%').replaceAll('%.1f', '${team2Value.toStringAsFixed(1)}')
+                  : formatStr.replaceAll('%.1f', '${team2Value.toStringAsFixed(1)}').replaceAll('%.3f', '${team2Value.toStringAsFixed(3)}');
+              
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(
+                  children: [
+                    // Team 1 value
+                    Expanded(
+                      child: Text(
+                        team1Str,
+                        style: statValueStyle.copyWith(
+                          color: team1Better ? Colors.green : isDark ? Colors.white : Colors.black,
+                          fontWeight: team1Better ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    // Stat label
+                    Expanded(
+                      child: Text(
+                        stat['label'] as String,
+                        style: statLabelStyle,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    // Team 2 value
+                    Expanded(
+                      child: Text(
+                        team2Str,
+                        style: statValueStyle.copyWith(
+                          color: !team1Better ? Colors.green : isDark ? Colors.white : Colors.black,
+                          fontWeight: !team1Better ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildKeyFactorsExplanation() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
+    // Text styles
+    final headerStyle = GoogleFonts.poppins(
+      fontSize: 16,
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+    );
+    
+    final subheaderStyle = GoogleFonts.poppins(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: isDark ? Colors.white : Colors.black87,
+    );
+    
+    final bodyStyle = GoogleFonts.poppins(
+      fontSize: 13,
+      color: isDark ? Colors.white70 : Colors.black54,
+    );
+    
+    // Determine winning and losing team
     final winningTeam = widget.game.team1WinProbability > widget.game.team2WinProbability 
         ? widget.game.team1Name 
         : widget.game.team2Name;
@@ -466,20 +659,24 @@ class _TransparencyPageState extends State<TransparencyPage> {
         ? widget.game.team2Name 
         : widget.game.team1Name;
     
-    // Get team strengths and weaknesses from explanation data
+    // Get explanation factors from the backend data
     List<String> winningFactors = [];
     List<String> losingFactors = [];
     
-    if (keyFactors.containsKey('team_strengths')) {
-      if (keyFactors['team_strengths'].containsKey(winningTeam)) {
-        winningFactors = List<String>.from(keyFactors['team_strengths'][winningTeam]);
-      }
+    if (keyFactors.containsKey('team_strengths') && 
+        keyFactors['team_strengths'].containsKey(winningTeam)) {
+      winningFactors = List<String>.from(keyFactors['team_strengths'][winningTeam]);
     }
     
-    if (keyFactors.containsKey('team_weaknesses')) {
-      if (keyFactors['team_weaknesses'].containsKey(losingTeam)) {
-        losingFactors = List<String>.from(keyFactors['team_weaknesses'][losingTeam]);
-      }
+    if (keyFactors.containsKey('team_weaknesses') && 
+        keyFactors['team_weaknesses'].containsKey(losingTeam)) {
+      losingFactors = List<String>.from(keyFactors['team_weaknesses'][losingTeam]);
+    }
+    
+    // Additional context from key factors
+    String matchupContext = '';
+    if (keyFactors.containsKey('matchup_context')) {
+      matchupContext = keyFactors['matchup_context'] as String? ?? '';
     }
     
     // Fallback if backend doesn't provide data
@@ -499,73 +696,191 @@ class _TransparencyPageState extends State<TransparencyPage> {
       ];
     }
     
-    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    if (matchupContext.isEmpty) {
+      matchupContext = 'Based on recent performance and statistical analysis, $winningTeam has a higher probability of winning this game.';
+    }
     
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Hexagon Chart Section
-          Padding(
-            padding: const EdgeInsets.only(bottom: 20.0),
-            child: TeamStatsHexagon(
-              team1Stats: team1Stats,
-              team2Stats: team2Stats,
-              team1Name: widget.game.team1Name,
-              team2Name: widget.game.team2Name,
-              team1Color: Colors.blue,
-              team2Color: Colors.red,
-              team1RawStats: team1RawStats,
-              team2RawStats: team2RawStats,
+    return Card(
+      elevation: 2,
+      color: isDark ? Colors.grey[850] : Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Card title
+            Text('Key Prediction Factors', style: headerStyle),
+            const SizedBox(height: 16),
+            
+            // Matchup context paragraph
+            Text(matchupContext, style: bodyStyle),
+            const SizedBox(height: 16),
+            
+            // Winning team strengths
+            Text(
+              'Why $winningTeam is Favored:',
+              style: subheaderStyle,
             ),
-          ),
-          
-          // Divider
-          Divider(color: isDarkMode ? Colors.grey[700] : Colors.grey[300]),
-          
-          // Factors Section
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Winning team strengths
-                Text(
-                  'Why $winningTeam Wins',
+            const SizedBox(height: 8),
+            ...winningFactors.map((factor) => _buildFactorRow(
+              factor: factor,
+              isPositive: true,
+              isDarkMode: isDark,
+            )),
+            
+            const SizedBox(height: 16),
+            
+            // Losing team weaknesses
+            Text(
+              'Why $losingTeam Falls Short:',
+              style: subheaderStyle,
+            ),
+            const SizedBox(height: 8),
+            ...losingFactors.map((factor) => _buildFactorRow(
+              factor: factor,
+              isPositive: false,
+              isDarkMode: isDark,
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildPlayerImpactVisualization() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
+    // Text styles
+    final headerStyle = GoogleFonts.poppins(
+      fontSize: 16,
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+    );
+    
+    final playerNameStyle = GoogleFonts.poppins(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: isDark ? Colors.white : Colors.black87,
+    );
+    
+    final infoStyle = GoogleFonts.poppins(
+      fontSize: 12,
+      fontStyle: FontStyle.italic,
+      color: isDark ? Colors.grey[400] : Colors.grey[600],
+    );
+    
+    // Get sorted players by impact
+    List<MapEntry<String, dynamic>> sortedPlayers = [];
+    if (playerImpacts.isNotEmpty) {
+      sortedPlayers = playerImpacts.entries.toList()
+        ..sort((a, b) => (b.value as num).abs().compareTo((a.value as num).abs()));
+      
+      // Take only top players for visualization
+      if (sortedPlayers.length > 5) {
+        sortedPlayers = sortedPlayers.sublist(0, 5);
+      }
+    }
+    
+    return Card(
+      elevation: 2,
+      color: isDark ? Colors.grey[850] : Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Card title
+            Text('Player Impact on Prediction', style: headerStyle),
+            const SizedBox(height: 8),
+            
+            // Info text
+            Text(
+              'These players have the most significant impact on the game prediction.',
+              style: infoStyle,
+            ),
+            const SizedBox(height: 16),
+            
+            // Player impact bars
+            if (sortedPlayers.isEmpty)
+              Center(
+                child: Text(
+                  'No player impact data available',
                   style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDarkMode ? Colors.white : Colors.black,
+                    fontSize: 14,
+                    color: isDark ? Colors.white70 : Colors.grey[700],
                   ),
                 ),
-                const SizedBox(height: 8),
-                ...winningFactors.map((factor) => _buildFactorRow(
-                  factor: factor,
-                  isPositive: true,
-                  isDarkMode: isDarkMode,
-                )),
+              )
+            else
+              ...sortedPlayers.map((entry) {
+                final playerName = entry.key;
+                final impact = entry.value as double;
+                final absImpact = impact.abs();
+                final isPositive = impact > 0;
+                final barColor = isPositive ? Colors.green.shade600 : Colors.red.shade600;
                 
-                const SizedBox(height: 16),
+                // Determine which team the player belongs to based on the impacts data
+                // This is a simplification - ideally backend would provide team for each player
+                final playerTeam = isPositive ? widget.game.team1Name : widget.game.team2Name;
                 
-                // Losing team weaknesses
-                Text(
-                  'Why $losingTeam Falls Short',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDarkMode ? Colors.white : Colors.black,
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Player name and impact value
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '$playerName ($playerTeam)',
+                              style: playerNameStyle,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            '${(absImpact * 100).toStringAsFixed(1)}%',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: barColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      
+                      // Impact bar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: SizedBox(
+                          height: 8,
+                          child: LinearProgressIndicator(
+                            value: absImpact > 1.0 ? 1.0 : absImpact, // Cap at 100%
+                            backgroundColor: isDark ? Colors.grey[700] : Colors.grey[300],
+                            valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                          ),
+                        ),
+                      ),
+                      
+                      // Impact description
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          isPositive 
+                            ? 'Improves ${widget.game.team1Name} win probability'
+                            : 'Improves ${widget.game.team2Name} win probability',
+                          style: infoStyle,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                ...losingFactors.map((factor) => _buildFactorRow(
-                  factor: factor,
-                  isPositive: false,
-                  isDarkMode: isDarkMode,
-                )),
-              ],
-            ),
-          ),
-        ],
+                );
+              }).toList(),
+          ],
+        ),
       ),
     );
   }

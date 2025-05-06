@@ -957,10 +957,293 @@ def get_prediction_factors(game_id):
 def get_game_analysis(game_id):
     """Get comprehensive game analysis for the View Analysis button"""
     try:
-        # Use our game analysis model to get detailed analysis
-        analysis = game_analysis.get_game_analysis(game_id)
+        # Get game details first
+        game_details = game_model.get_game(game_id)
+        if not game_details:
+            return jsonify({'error': 'Game not found'}), 404
+            
+        team1_name = game_details.get('team1_name')
+        team2_name = game_details.get('team2_name')
+        
+        # Load team stats from CSV
+        team1_stats = {}
+        team2_stats = {}
+        
+        try:
+            # Use the CSV data for team stats
+            csv_path = os.path.join('data', 'team_data.csv')
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path)
+                
+                # Filter for most recent games for each team
+                team1_data = df[df['TEAM_NAME'] == team1_name].sort_values('GAME_DATE', ascending=False).iloc[0] if len(df[df['TEAM_NAME'] == team1_name]) > 0 else None
+                team2_data = df[df['TEAM_NAME'] == team2_name].sort_values('GAME_DATE', ascending=False).iloc[0] if len(df[df['TEAM_NAME'] == team2_name]) > 0 else None
+                
+                # Process team1 stats
+                if team1_data is not None:
+                    team1_stats = {
+                        'PPG': float(team1_data['PTS']),
+                        '3PT': float(team1_data['FG3_PCT']) * 100,  # Convert to percentage
+                        'REB': float(team1_data['REB']),
+                        'AST': float(team1_data['AST']),
+                        'STL': float(team1_data['STL']),
+                        'BLK': float(team1_data['BLK']),
+                        'W': int(team1_data['W']),
+                        'L': int(team1_data['L']),
+                        'W_PCT': float(team1_data['W_PCT']),
+                        'LAST_5': [], # Will be filled below
+                        'HOME_RECORD': '0-0',  # Placeholder
+                        'AWAY_RECORD': '0-0',  # Placeholder
+                    }
+                    
+                # Process team2 stats
+                if team2_data is not None:
+                    team2_stats = {
+                        'PPG': float(team2_data['PTS']),
+                        '3PT': float(team2_data['FG3_PCT']) * 100,  # Convert to percentage
+                        'REB': float(team2_data['REB']),
+                        'AST': float(team2_data['AST']),
+                        'STL': float(team2_data['STL']),
+                        'BLK': float(team2_data['BLK']),
+                        'W': int(team2_data['W']),
+                        'L': int(team2_data['L']),
+                        'W_PCT': float(team2_data['W_PCT']),
+                        'LAST_5': [], # Will be filled below
+                        'HOME_RECORD': '0-0',  # Placeholder
+                        'AWAY_RECORD': '0-0',  # Placeholder
+                    }
+                
+                # Try to get last 5 games for each team
+                try:
+                    team1_last_5 = df[df['TEAM_NAME'] == team1_name].sort_values('GAME_DATE', ascending=False).head(5)
+                    team2_last_5 = df[df['TEAM_NAME'] == team2_name].sort_values('GAME_DATE', ascending=False).head(5)
+                    
+                    # Process last 5 games for team1
+                    for _, game in team1_last_5.iterrows():
+                        if 'OPP_TEAM' in game and 'WL' in game and 'PTS' in game and 'OPP_PTS' in game:
+                            team1_stats['LAST_5'].append({
+                                'opponent': game['OPP_TEAM'],
+                                'result': 'W' if game.get('WL') == 'W' else 'L',
+                                'score': f"{int(game['PTS'])}-{int(game['OPP_PTS'])}",
+                                'date': game['GAME_DATE']
+                            })
+                    
+                    # Process last 5 games for team2
+                    for _, game in team2_last_5.iterrows():
+                        if 'OPP_TEAM' in game and 'WL' in game and 'PTS' in game and 'OPP_PTS' in game:
+                            team2_stats['LAST_5'].append({
+                                'opponent': game['OPP_TEAM'],
+                                'result': 'W' if game.get('WL') == 'W' else 'L',
+                                'score': f"{int(game['PTS'])}-{int(game['OPP_PTS'])}",
+                                'date': game['GAME_DATE']
+                            })
+                except Exception as e:
+                    print(f"Error processing last 5 games: {e}")
+                
+                # Try to calculate home/away records
+                try:
+                    if 'HOME_AWAY' in df.columns and 'WL' in df.columns:
+                        team1_home_games = df[(df['TEAM_NAME'] == team1_name) & (df['HOME_AWAY'] == 'HOME')]
+                        team1_home_wins = len(team1_home_games[team1_home_games['WL'] == 'W'])
+                        team1_home_losses = len(team1_home_games[team1_home_games['WL'] == 'L'])
+                        team1_stats['HOME_RECORD'] = f"{team1_home_wins}-{team1_home_losses}"
+                        
+                        team1_away_games = df[(df['TEAM_NAME'] == team1_name) & (df['HOME_AWAY'] == 'AWAY')]
+                        team1_away_wins = len(team1_away_games[team1_away_games['WL'] == 'W'])
+                        team1_away_losses = len(team1_away_games[team1_away_games['WL'] == 'L'])
+                        team1_stats['AWAY_RECORD'] = f"{team1_away_wins}-{team1_away_losses}"
+                        
+                        team2_home_games = df[(df['TEAM_NAME'] == team2_name) & (df['HOME_AWAY'] == 'HOME')]
+                        team2_home_wins = len(team2_home_games[team2_home_games['WL'] == 'W'])
+                        team2_home_losses = len(team2_home_games[team2_home_games['WL'] == 'L'])
+                        team2_stats['HOME_RECORD'] = f"{team2_home_wins}-{team2_home_losses}"
+                        
+                        team2_away_games = df[(df['TEAM_NAME'] == team2_name) & (df['HOME_AWAY'] == 'AWAY')]
+                        team2_away_wins = len(team2_away_games[team2_away_games['WL'] == 'W'])
+                        team2_away_losses = len(team2_away_games[team2_away_games['WL'] == 'L'])
+                        team2_stats['AWAY_RECORD'] = f"{team2_away_wins}-{team2_away_losses}"
+                except Exception as e:
+                    print(f"Error calculating home/away records: {e}")
+        except Exception as e:
+            print(f"Error processing CSV data: {e}")
+            
+        # Get player stats from CSV
+        team1_players = []
+        team2_players = []
+        
+        try:
+            # Use player CSV data
+            player_csv_path = os.path.join('data', 'updated_player_data.csv')
+            if os.path.exists(player_csv_path):
+                player_df = pd.read_csv(player_csv_path)
+                
+                # Get team abbreviations
+                team1_abbr = None
+                team2_abbr = None
+                
+                # Some CSV files might use TEAM_NAME directly, others might need to be mapped
+                if 'TEAM_NAME' in player_df.columns:
+                    team1_rows = player_df[player_df['TEAM_NAME'] == team1_name]
+                    team2_rows = player_df[player_df['TEAM_NAME'] == team2_name]
+                    if len(team1_rows) > 0:
+                        team1_abbr = team1_rows.iloc[0]['TEAM_ABBREVIATION']
+                    if len(team2_rows) > 0:
+                        team2_abbr = team2_rows.iloc[0]['TEAM_ABBREVIATION']
+                else:
+                    # Try to map from NBA API teams
+                    try:
+                        nba_teams = teams.get_teams()
+                        for team in nba_teams:
+                            if team['full_name'] == team1_name:
+                                team1_abbr = team['abbreviation']
+                            if team['full_name'] == team2_name:
+                                team2_abbr = team['abbreviation']
+                    except Exception as e:
+                        print(f"Error mapping team names to abbreviations: {e}")
+                
+                # Process team1 players if we have the abbreviation
+                if team1_abbr:
+                    team1_players_df = player_df[player_df['TEAM_ABBREVIATION'] == team1_abbr].sort_values('PTS', ascending=False)
+                    for _, player in team1_players_df.iterrows():
+                        try:
+                            # Calculate player impact factor using the same formula as in predict_with_performance_factors
+                            pts = float(player['PTS'])
+                            reb = float(player['REB'])
+                            ast = float(player['AST'])
+                            stl = float(player['STL'])
+                            blk = float(player['BLK'])
+                            
+                            raw_impact = (0.4 * pts + 0.2 * reb + 0.2 * ast + 0.1 * stl + 0.1 * blk)
+                            impact_factor = raw_impact / 100.0
+                            impact_factor = min(max(impact_factor, 0.01), 0.20)
+                            impact_factor = round(impact_factor, 3)
+                            
+                            team1_players.append({
+                                'name': player['PLAYER_NAME'],
+                                'pts': pts,
+                                'reb': reb,
+                                'ast': ast,
+                                'stl': stl,
+                                'blk': blk,
+                                'impact_factor': impact_factor
+                            })
+                        except Exception as e:
+                            print(f"Error processing player {player.get('PLAYER_NAME', 'unknown')}: {e}")
+                
+                # Process team2 players if we have the abbreviation
+                if team2_abbr:
+                    team2_players_df = player_df[player_df['TEAM_ABBREVIATION'] == team2_abbr].sort_values('PTS', ascending=False)
+                    for _, player in team2_players_df.iterrows():
+                        try:
+                            pts = float(player['PTS'])
+                            reb = float(player['REB'])
+                            ast = float(player['AST'])
+                            stl = float(player['STL'])
+                            blk = float(player['BLK'])
+                            
+                            raw_impact = (0.4 * pts + 0.2 * reb + 0.2 * ast + 0.1 * stl + 0.1 * blk)
+                            impact_factor = raw_impact / 100.0
+                            impact_factor = min(max(impact_factor, 0.01), 0.20)
+                            impact_factor = round(impact_factor, 3)
+                            
+                            team2_players.append({
+                                'name': player['PLAYER_NAME'],
+                                'pts': pts,
+                                'reb': reb,
+                                'ast': ast,
+                                'stl': stl,
+                                'blk': blk,
+                                'impact_factor': impact_factor
+                            })
+                        except Exception as e:
+                            print(f"Error processing player {player.get('PLAYER_NAME', 'unknown')}: {e}")
+        except Exception as e:
+            print(f"Error processing player data: {e}")
+        
+        # Calculate key factors (strengths/weaknesses) based on team stats
+        key_factors = {
+            'team1_strengths': [],
+            'team1_weaknesses': [],
+            'team2_strengths': [],
+            'team2_weaknesses': []
+        }
+        
+        # Compare offensive output
+        if team1_stats.get('PPG', 0) > team2_stats.get('PPG', 0):
+            key_factors['team1_strengths'].append('Superior offensive output')
+            key_factors['team2_weaknesses'].append('Lower scoring average')
+        else:
+            key_factors['team2_strengths'].append('Superior offensive output')
+            key_factors['team1_weaknesses'].append('Lower scoring average')
+        
+        # Compare rebounding
+        if team1_stats.get('REB', 0) > team2_stats.get('REB', 0):
+            key_factors['team1_strengths'].append('Better rebounding')
+            key_factors['team2_weaknesses'].append('Weaker rebounding')
+        else:
+            key_factors['team2_strengths'].append('Better rebounding')
+            key_factors['team1_weaknesses'].append('Weaker rebounding')
+            
+        # Compare assists
+        if team1_stats.get('AST', 0) > team2_stats.get('AST', 0):
+            key_factors['team1_strengths'].append('Superior ball movement')
+            key_factors['team2_weaknesses'].append('Less team assists')
+        else:
+            key_factors['team2_strengths'].append('Superior ball movement')
+            key_factors['team1_weaknesses'].append('Less team assists')
+            
+        # Compare 3pt shooting
+        if team1_stats.get('3PT', 0) > team2_stats.get('3PT', 0):
+            key_factors['team1_strengths'].append('Better 3-point shooting')
+            key_factors['team2_weaknesses'].append('Lower 3-point percentage')
+        else:
+            key_factors['team2_strengths'].append('Better 3-point shooting')
+            key_factors['team1_weaknesses'].append('Lower 3-point percentage')
+            
+        # Compare defense metrics
+        if team1_stats.get('STL', 0) > team2_stats.get('STL', 0):
+            key_factors['team1_strengths'].append('More active defense')
+            key_factors['team2_weaknesses'].append('Susceptible to turnovers')
+        else:
+            key_factors['team2_strengths'].append('More active defense')
+            key_factors['team1_weaknesses'].append('Susceptible to turnovers')
+            
+        # Compare interior defense
+        if team1_stats.get('BLK', 0) > team2_stats.get('BLK', 0):
+            key_factors['team1_strengths'].append('Stronger interior defense')
+            key_factors['team2_weaknesses'].append('Weaker rim protection')
+        else:
+            key_factors['team2_strengths'].append('Stronger interior defense')
+            key_factors['team1_weaknesses'].append('Weaker rim protection')
+        
+        # Add home court advantage factor
+        if game_details.get('location', '').startswith(team1_name):
+            key_factors['team1_strengths'].append('Home court advantage')
+        elif game_details.get('location', '').startswith(team2_name):
+            key_factors['team2_strengths'].append('Home court advantage')
+        
+        # Calculate win probabilities
+        team1_win_prob = game_details.get('team1_win_probability', 0.5)
+        team2_win_prob = game_details.get('team2_win_probability', 0.5)
+        
+        # Compile all data
+        analysis = {
+            'game_id': game_id,
+            'team1_name': team1_name,
+            'team2_name': team2_name,
+            'team1_stats': team1_stats,
+            'team2_stats': team2_stats,
+            'team1_players': team1_players,
+            'team2_players': team2_players,
+            'key_factors': key_factors,
+            'team1_win_probability': team1_win_prob,
+            'team2_win_probability': team2_win_prob,
+            'game_details': game_details
+        }
+        
         return jsonify(analysis)
     except Exception as e:
+        print(f"Error in get_game_analysis: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/team-standings', methods=['GET'])

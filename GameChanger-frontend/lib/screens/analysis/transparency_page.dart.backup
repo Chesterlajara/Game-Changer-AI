@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
+import '../../data/team_matchup_data.dart';
 
 import '../../models/game_model.dart';
 import '../../providers/theme_provider.dart';
@@ -14,7 +15,6 @@ import '../../services/game_analysis_service.dart';
 import '../../widgets/team_stats_hexagon.dart';
 import '../../data/player_data.dart';
 import '../../data/nba_teams.dart';
-import '../../data/team_matchup_data.dart';
 
 class TransparencyPage extends StatefulWidget {
   final Game game;
@@ -42,7 +42,7 @@ class _TransparencyPageState extends State<TransparencyPage> {
   // Team statistics for the hexagon chart
   Map<String, double> team1Stats = {
     'PPG': 0.6,
-    'FG3_PCT': 0.5,
+    '3PT': 0.5,
     'REB': 0.7,
     'AST': 0.4,
     'STL': 0.5,
@@ -50,285 +50,186 @@ class _TransparencyPageState extends State<TransparencyPage> {
   };
   
   Map<String, double> team2Stats = {
-    'PPG': 0.7,
-    'FG3_PCT': 0.4,
-    'REB': 0.6,
+    'PPG': 0.4,
+    '3PT': 0.3,
+    'REB': 0.3,
     'AST': 0.6,
-    'STL': 0.4,
+    'STL': 0.7,
     'BLK': 0.5,
   };
-
-  // Raw stats for display
-  Map<String, dynamic> team1RawStats = {
-    'PPG': 108.2,
-    'FG3_PCT': 36.5,
-    'REB': 44.2,
+  
+  // Raw team statistics (actual values, not normalized)
+  Map<String, double> team1RawStats = {
+    'PPG': 106.5,
+    '3PT': 36.7,
+    'REB': 45.2,
     'AST': 25.8,
-    'STL': 7.3,
+    'STL': 8.4,
+    'BLK': 5.1,
+  };
+  
+  Map<String, double> team2RawStats = {
+    'PPG': 102.3,
+    '3PT': 34.2,
+    'REB': 42.5,
+    'AST': 23.6,
+    'STL': 7.6,
     'BLK': 4.2,
   };
-  
-  Map<String, dynamic> team2RawStats = {
-    'PPG': 112.4,
-    'FG3_PCT': 34.8,
-    'REB': 41.6,
-    'AST': 28.1,
-    'STL': 6.7,
-    'BLK': 5.3,
-  };
-  
+
   @override
   void initState() {
     super.initState();
     _fetchAnalysisData();
   }
-  
-  // Fetch analysis data from backend or CSV files
+
   Future<void> _fetchAnalysisData() async {
     setState(() {
       isLoading = true;
     });
     
     try {
-      // Try to load from backend first
-      final gameId = '1'; // Hardcoded for demo
+      print('Starting data fetch for teams: ${widget.game.team1Name} vs ${widget.game.team2Name}');
       
-      // Initialize data holders
-      Map<String, dynamic> analysisData = {};
-      Map<String, dynamic> playerImpactsData = {};
-      Map<String, dynamic> keyFactorsData = {};
-      Map<String, dynamic> historicalMatchupData = {};
-      
-      // Try to fetch team stats directly
+      // APPROACH 1: Try direct API call with team names
+      // Use a POST request directly to Flask backend to get both team stats
       try {
-        final teamStatsUrl = 'http://localhost:5000/api/team-stats/${widget.game.team1Name}/${widget.game.team2Name}';
-        final teamStatsResponse = await http.get(Uri.parse(teamStatsUrl));
+        final teamStatsResponse = await http.post(
+          Uri.parse('http://localhost:5000/get-team-stats'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'team1': widget.game.team1Name,
+            'team2': widget.game.team2Name,
+          }),
+        );
+        
+        print('Team stats API response code: ${teamStatsResponse.statusCode}');
         
         if (teamStatsResponse.statusCode == 200) {
-          // Successfully retrieved team stats
-          final Map<String, dynamic> processedStats = _normalizeTeamStats(
-            teamStatsResponse.body,
-            team1Stats,
-            team2Stats,
-            team1RawStats,
-            team2RawStats
+          final teamStatsData = jsonDecode(teamStatsResponse.body);
+          print('Team stats data received: ${teamStatsData.keys}');
+          
+          // Process the team stats to get both normalized and raw values
+          final processedStats = TeamStatsService.processTeamStats(
+            teamStatsData,
+            widget.game.team1Name,
+            widget.game.team2Name,
           );
           
           // Set processed team stats
           setState(() {
             team1Stats = processedStats['team1Stats'] ?? team1Stats;
-            team2Stats = processedStats['team2Stats'] ?? team2Stats;
-            team1RawStats = processedStats['team1RawStats'] ?? team1RawStats;
-            team2RawStats = processedStats['team2RawStats'] ?? team2RawStats;
-          });
+      
+      // Get the teams' abbreviations - we need to handle the exact team names from the game
+      String team1Name = widget.game.team1Name;
+      String team2Name = widget.game.team2Name;
+      
+      print('Exact team names from game: "$team1Name" vs "$team2Name"');
+      
+      // Try to find the team abbreviations - handle common variations
+      String team1Abbreviation = '';
+      String team2Abbreviation = '';
+      
+      // Try direct lookup first
+      team1Abbreviation = NbaTeams.getTeamAbbreviation(team1Name) ?? '';
+      team2Abbreviation = NbaTeams.getTeamAbbreviation(team2Name) ?? '';
+      
+      print('After direct lookup: "$team1Abbreviation" vs "$team2Abbreviation"');
+      
+      // Handle common team name variations and partial matches
+      if (team1Abbreviation.isEmpty) {
+        // Try to find partial matches
+        for (var entry in NbaTeams.abbreviationToName.entries) {
+          if (team1Name.contains(entry.value) || entry.value.contains(team1Name)) {
+            team1Abbreviation = entry.key;
+            print('Found partial match for team 1: $team1Name -> ${entry.value} -> $team1Abbreviation');
+            break;
+          }
         }
-      } catch (e) {
-        print('Error fetching team stats directly: $e');
+        
+        // Fallback to common names if still empty
+        if (team1Abbreviation.isEmpty) {
+          if (team1Name.toLowerCase().contains('lakers')) team1Abbreviation = 'LAL';
+          else if (team1Name.toLowerCase().contains('warriors')) team1Abbreviation = 'GSW';
+          else if (team1Name.toLowerCase().contains('celtics')) team1Abbreviation = 'BOS';
+          else if (team1Name.toLowerCase().contains('bucks')) team1Abbreviation = 'MIL';
+          else if (team1Name.toLowerCase().contains('nuggets')) team1Abbreviation = 'DEN';
+          else if (team1Name.toLowerCase().contains('mavericks')) team1Abbreviation = 'DAL';
+          else if (team1Name.toLowerCase().contains('thunder')) team1Abbreviation = 'OKC';
+          
+          if (team1Abbreviation.isNotEmpty) {
+            print('Used name pattern match for team 1: $team1Name -> $team1Abbreviation');
+          }
+        }
       }
       
-      // APPROACH 2: Load player data directly from CSV files
-      try {
-        print('Loading player data from CSV files...');
-        print('=== DEBUG INFO ===');
-        print('Game details: ${widget.game.team1Name} vs ${widget.game.team2Name}');
-        
-        // First, let's get all available team names in the system
-        final allTeamNames = NbaTeams.getAllTeamNames();
-        print('All team names in system: $allTeamNames');
-        
-        // Get the teams' abbreviations - we need to handle the exact team names from the game
-        String team1Name = widget.game.team1Name;
-        String team2Name = widget.game.team2Name;
-        
-        print('Exact team names from game: "$team1Name" vs "$team2Name"');
-        
-        // Try to find the team abbreviations - handle common variations
-        String team1Abbreviation = '';
-        String team2Abbreviation = '';
-        
-        // Try direct lookup first
-        team1Abbreviation = NbaTeams.getTeamAbbreviation(team1Name) ?? '';
-        team2Abbreviation = NbaTeams.getTeamAbbreviation(team2Name) ?? '';
-        
-        print('After direct lookup: "$team1Abbreviation" vs "$team2Abbreviation"');
-        
-        // Handle common team name variations and partial matches
-        if (team1Abbreviation.isEmpty) {
-          // Try to find partial matches
-          for (var entry in NbaTeams.abbreviationToName.entries) {
-            if (team1Name.contains(entry.value) || entry.value.contains(team1Name)) {
-              team1Abbreviation = entry.key;
-              print('Found partial match for team 1: $team1Name -> ${entry.value} -> $team1Abbreviation');
-              break;
-            }
-          }
-          
-          // Fallback to common names if still empty
-          if (team1Abbreviation.isEmpty) {
-            if (team1Name.toLowerCase().contains('lakers')) team1Abbreviation = 'LAL';
-            else if (team1Name.toLowerCase().contains('warriors')) team1Abbreviation = 'GSW';
-            else if (team1Name.toLowerCase().contains('celtics')) team1Abbreviation = 'BOS';
-            else if (team1Name.toLowerCase().contains('bucks')) team1Abbreviation = 'MIL';
-            else if (team1Name.toLowerCase().contains('nuggets')) team1Abbreviation = 'DEN';
-            else if (team1Name.toLowerCase().contains('mavericks')) team1Abbreviation = 'DAL';
-            else if (team1Name.toLowerCase().contains('thunder')) team1Abbreviation = 'OKC';
-            
-            if (team1Abbreviation.isNotEmpty) {
-              print('Used name pattern match for team 1: $team1Name -> $team1Abbreviation');
-            }
+      if (team2Abbreviation.isEmpty) {
+        // Try to find partial matches
+        for (var entry in NbaTeams.abbreviationToName.entries) {
+          if (team2Name.contains(entry.value) || entry.value.contains(team2Name)) {
+            team2Abbreviation = entry.key;
+            print('Found partial match for team 2: $team2Name -> ${entry.value} -> $team2Abbreviation');
+            break;
           }
         }
         
+        // Fallback to common names if still empty
         if (team2Abbreviation.isEmpty) {
-          // Try to find partial matches
-          for (var entry in NbaTeams.abbreviationToName.entries) {
-            if (team2Name.contains(entry.value) || entry.value.contains(team2Name)) {
-              team2Abbreviation = entry.key;
-              print('Found partial match for team 2: $team2Name -> ${entry.value} -> $team2Abbreviation');
-              break;
-            }
-          }
+          if (team2Name.toLowerCase().contains('lakers')) team2Abbreviation = 'LAL';
+          else if (team2Name.toLowerCase().contains('warriors')) team2Abbreviation = 'GSW';
+          else if (team2Name.toLowerCase().contains('celtics')) team2Abbreviation = 'BOS';
+          else if (team2Name.toLowerCase().contains('bucks')) team2Abbreviation = 'MIL';
+          else if (team2Name.toLowerCase().contains('nuggets')) team2Abbreviation = 'DEN';
+          else if (team2Name.toLowerCase().contains('mavericks')) team2Abbreviation = 'DAL';
+          else if (team2Name.toLowerCase().contains('thunder')) team2Abbreviation = 'OKC';
           
-          // Fallback to common names if still empty
-          if (team2Abbreviation.isEmpty) {
-            if (team2Name.toLowerCase().contains('lakers')) team2Abbreviation = 'LAL';
-            else if (team2Name.toLowerCase().contains('warriors')) team2Abbreviation = 'GSW';
-            else if (team2Name.toLowerCase().contains('celtics')) team2Abbreviation = 'BOS';
-            else if (team2Name.toLowerCase().contains('bucks')) team2Abbreviation = 'MIL';
-            else if (team2Name.toLowerCase().contains('nuggets')) team2Abbreviation = 'DEN';
-            else if (team2Name.toLowerCase().contains('mavericks')) team2Abbreviation = 'DAL';
-            else if (team2Name.toLowerCase().contains('thunder')) team2Abbreviation = 'OKC';
-            
-            if (team2Abbreviation.isNotEmpty) {
-              print('Used name pattern match for team 2: $team2Name -> $team2Abbreviation');
-            }
+          if (team2Abbreviation.isNotEmpty) {
+            print('Used name pattern match for team 2: $team2Name -> $team2Abbreviation');
           }
         }
-        
-        print('Final team abbreviations: "$team1Abbreviation" vs "$team2Abbreviation"');
-        
-        // For demo purposes, if we can't find the abbreviations, use LAL and GSW
-        if (team1Abbreviation.isEmpty) {
-          team1Abbreviation = 'LAL';
-          print('WARNING: Using default LAL for team 1');
-        }
-        if (team2Abbreviation.isEmpty) {
-          team2Abbreviation = 'GSW';
-          print('WARNING: Using default GSW for team 2');
-        }
-        
-        // PART 1: Load player data from CSV files for player impacts
-        final playersByTeam = await PlayerData.loadPlayerData();
-        
-        print('Player data loaded, found ${playersByTeam.keys.length} teams');
-        print('Available teams: ${playersByTeam.keys.toList()}');
-        
-        // Create player impacts map from CSV data
-        Map<String, double> extractedPlayerImpacts = {};
-        
-        // If exact teams not found, use the first two teams available from CSV
-        List<String> teamsToUse = [];
-        
-        // First try to use the resolved abbreviations
-        if (playersByTeam.containsKey(team1Abbreviation)) {
-          teamsToUse.add(team1Abbreviation);
-        }
-        if (playersByTeam.containsKey(team2Abbreviation)) {
-          teamsToUse.add(team2Abbreviation);
-        }
-        
-        // If we don't have two teams yet, use whatever teams are available from the CSV
-        if (teamsToUse.length < 2 && playersByTeam.keys.length >= 2) {
-          print('Falling back to available teams from CSV');
-          final availableTeams = playersByTeam.keys.toList();
-          // Don't duplicate teams already added
-          for (var team in availableTeams) {
-            if (!teamsToUse.contains(team) && teamsToUse.length < 2) {
-              teamsToUse.add(team);
-            }
+      }
+      
+      print('Final team abbreviations: "$team1Abbreviation" vs "$team2Abbreviation"');
+      
+      // For demo purposes, if we can't find the abbreviations, use LAL and GSW
+      if (team1Abbreviation.isEmpty) {
+        team1Abbreviation = 'LAL';
+        print('WARNING: Using default LAL for team 1');
+      }
+      if (team2Abbreviation.isEmpty) {
+        team2Abbreviation = 'GSW';
+        print('WARNING: Using default GSW for team 2');
+      }
+      
+      // PART 1: Load player data from CSV files for player impacts
+      final playersByTeam = await PlayerData.loadPlayerData();
+      
+      print('Player data loaded, found ${playersByTeam.keys.length} teams');
+      print('Available teams: ${playersByTeam.keys.toList()}');
+      
+      // Create player impacts map from CSV data
+      Map<String, double> extractedPlayerImpacts = {};
+      
+      // If exact teams not found, use the first two teams available from CSV
+      List<String> teamsToUse = [];
+      
+      // First try to use the resolved abbreviations
+      if (playersByTeam.containsKey(team1Abbreviation)) {
+        teamsToUse.add(team1Abbreviation);
+      }
+      if (playersByTeam.containsKey(team2Abbreviation)) {
+        teamsToUse.add(team2Abbreviation);
+      }
+      
+      // If we don't have two teams yet, use whatever teams are available from the CSV
+      if (teamsToUse.length < 2 && playersByTeam.keys.length >= 2) {
+        print('Falling back to available teams from CSV');
+        final availableTeams = playersByTeam.keys.toList();
+        // Don't duplicate teams already added
+        for (var team in availableTeams) {
+          if (!teamsToUse.contains(team) && teamsToUse.length < 2) {
+            teamsToUse.add(team);
           }
-        }
-        
-        print('Using teams: $teamsToUse');
-        
-        // Process team 1 (positive impact)
-        if (teamsToUse.isNotEmpty) {
-          final team1 = teamsToUse[0];
-          final team1Players = playersByTeam[team1] ?? [];
-          print('Using ${team1Players.length} players for team 1 ($team1)');
-          
-          for (final player in team1Players) {
-            // Calculate impact factor as in the backend
-            final rawImpact = (0.4 * player.points + 
-                            0.2 * player.rebounds + 
-                            0.2 * player.assists + 
-                            0.1 * player.steals + 
-                            0.1 * player.blocks) / 100.0;
-            final impact = rawImpact.clamp(0.01, 0.20);
-            
-            // Add to impacts map - positive for team 1
-            extractedPlayerImpacts[player.playerName] = impact;
-            print('Added player ${player.playerName} with impact $impact');
-          }
-        }
-        
-        // Process team 2 (negative impact)
-        if (teamsToUse.length > 1) {
-          final team2 = teamsToUse[1];
-          final team2Players = playersByTeam[team2] ?? [];
-          print('Using ${team2Players.length} players for team 2 ($team2)');
-          
-          for (final player in team2Players) {
-            // Calculate impact factor as in the backend
-            final rawImpact = (0.4 * player.points + 
-                            0.2 * player.rebounds + 
-                            0.2 * player.assists + 
-                            0.1 * player.steals + 
-                            0.1 * player.blocks) / 100.0;
-            final impact = rawImpact.clamp(0.01, 0.20);
-            
-            // Add to impacts map - negative for team 2 (by convention)
-            extractedPlayerImpacts[player.playerName] = -impact;
-            print('Added player ${player.playerName} with impact ${-impact}');
-          }
-        }
-        
-        if (extractedPlayerImpacts.isNotEmpty) {
-          print('Generated ${extractedPlayerImpacts.length} player impacts from CSV data');
-          playerImpactsData = extractedPlayerImpacts;
-        }
-        
-        // PART 2: Load historical matchup data from CSV files
-        print('Loading head-to-head history data from CSV...');
-        
-        // Get the actual head-to-head matchups from the CSV file
-        final headToHeadMatchups = await TeamMatchupData.getHeadToHeadMatchups(
-          widget.game.team1Name, 
-          widget.game.team2Name,
-          limit: 5 // Show the 5 most recent matchups
-        );
-        
-        print('Loaded ${headToHeadMatchups.length} historical matchups');
-        
-        // Convert the matchup data to the format expected by the UI
-        final List<Map<String, dynamic>> matchupData = headToHeadMatchups.map((matchup) => {
-          'date': matchup.date,
-          'team1': matchup.team1,
-          'team2': matchup.team2,
-          'score1': matchup.score1.toString(),
-          'score2': matchup.score2.toString(),
-          'location': matchup.location,
-        }).toList();
-        
-        // Add historical matchup data to the historicalMatchupData
-        historicalMatchupData['head_to_head'] = matchupData;
-        print('Added ${matchupData.length} historical matchups to UI data');
-        
-      } catch (e) {
-        print('Error loading data from CSV files: $e');
-        
-        // Fallback player impacts - use team-specific players instead of generic ones
-        final String team1Name = widget.game.team1Name;
         final String team2Name = widget.game.team2Name;
         
         // Create fallback data based on common team names
@@ -367,157 +268,178 @@ class _TransparencyPageState extends State<TransparencyPage> {
           fallbackImpacts['Team 2 Second Option'] = -0.10;
         }
         
-        playerImpactsData = fallbackImpacts;
+        setState(() {
+          playerImpacts = fallbackImpacts;
+        });
       }
       
-      // Try to fetch game analysis data from the backend
+      // APPROACH 3: Try game analysis endpoint as a last resort
       try {
-        print('Fetching game analysis from backend...');
-        final gameAnalysisResult = await GameAnalysisService.getGameAnalysis(gameId);
+        final gameAnalysisResult = await GameAnalysisService.getGameAnalysis('1');
+        print('Game Analysis Result Keys: ${gameAnalysisResult.keys}');
         
         if (gameAnalysisResult.isNotEmpty) {
           // Extract key factors
-          if (gameAnalysisResult.containsKey('key_factors')) {
-            keyFactorsData = gameAnalysisResult['key_factors'] as Map<String, dynamic>;
-          }
-          
-          // Add any other data from game analysis to the predictionData
-          analysisData = gameAnalysisResult;
-        }
-      } catch (e) {
-        print('Error fetching game analysis: $e');
-      }
-      
-      // Update the state with all the data
-      setState(() {
-        predictionData = analysisData;
-        playerImpacts = playerImpactsData;
-        keyFactors = keyFactorsData;
-        historicalData = historicalMatchupData;
-        isLoading = false;
-      });
+          Map<String, dynamic> extractedKeyFactors = {};
     } catch (e) {
-      print('Error in _fetchAnalysisData: $e');
-      setState(() {
-        isLoading = false;
-      });
+      print('Error fetching game analysis: $e');
     }
+    
+    // Load historical matchup data from CSV
+    try {
+      print('Loading head-to-head history data from CSV...');
+      
+      // Get the actual head-to-head matchups from the CSV file
+      final headToHeadMatchups = await TeamMatchupData.getHeadToHeadMatchups(
+        widget.game.team1Name, 
+        widget.game.team2Name,
+        limit: 5 // Show the 5 most recent matchups
+      );
+      
+      print('Loaded ${headToHeadMatchups.length} historical matchups');
+      
+      // Convert the matchup data to the format expected by the UI
+      final List<Map<String, dynamic>> matchupData = headToHeadMatchups.map((matchup) => {
+        'date': matchup.date,
+        'team1': matchup.team1,
+        'team2': matchup.team2,
+        'score1': matchup.score1.toString(),
+        'score2': matchup.score2.toString(),
+        'location': matchup.location,
+      }).toList();
+      
+      // Add historical matchup data to the historicalMatchupData
+      historicalMatchupData['head_to_head'] = matchupData;
+      print('Added ${matchupData.length} historical matchups to UI data');
+    } catch (e) {
+      print('Error loading historical matchup data: $e');
+    }
+    
+    setState(() {
+      isLoading = false;
+    });
+  } catch (e) {
+    print('Error in _fetchAnalysisData: $e');
+    setState(() {
+      isLoading = false;
+    });
   }
+}
   
   // Helper method to normalize team stats for the hexagon chart and also set raw stats
   void _normalizeAndSetTeamStats(Map<String, dynamic> rawStats, Map<String, double> targetStats) {
     // Define max values for normalization
     final maxValues = {
       'PPG': 120.0, // Max points per game
-      'FG3_PCT': 45.0,  // Max 3-point percentage
+      '3PT': 45.0,  // Max 3-point percentage
       'REB': 55.0,  // Max rebounds
       'AST': 35.0,  // Max assists
       'STL': 12.0,  // Max steals
       'BLK': 8.0,   // Max blocks
     };
     
-    // Map keys from API to our display names if needed
-    final keyMapping = {
-      'PTS': 'PPG',
-      '3PT_PCT': 'FG3_PCT',
+    // Map API stat names to our display names if needed
+    final statMapping = {
+      'points_per_game': 'PPG',
+      'three_point_percentage': '3PT',
+      'rebounds_per_game': 'REB',
+      'assists_per_game': 'AST',
+      'steals_per_game': 'STL',
+      'blocks_per_game': 'BLK',
     };
     
-    // Process each stat
+    // Process stats for both normalized chart values and raw display values
+    Map<String, double> rawValues = {};
+    
     rawStats.forEach((key, value) {
-      // Map the key if needed
-      final displayKey = keyMapping[key] ?? key;
-      
-      // Check if this is a stat we want to display
-      if (maxValues.containsKey(displayKey)) {
-        // Convert to double if needed
-        final doubleValue = value is double ? value : double.tryParse(value.toString()) ?? 0.0;
+      final displayKey = statMapping[key] ?? key;
+      if (maxValues.containsKey(displayKey) && value is num) {
+        // Store the raw value for display
+        rawValues[displayKey] = value.toDouble();
         
-        // Normalize to 0-1 scale
-        targetStats[displayKey] = (doubleValue / (maxValues[displayKey] ?? 100.0)).clamp(0.0, 1.0);
+        // Calculate normalized value for the chart
+        final normalized = (value / maxValues[displayKey]!).clamp(0.0, 1.0);
+        targetStats[displayKey] = normalized;
+      }
+    });
+    
+    // Add fallback values for missing stats
+    maxValues.keys.forEach((key) {
+      if (!targetStats.containsKey(key)) {
+        targetStats[key] = 0.5; // Default normalized value
+      }
+      
+      // Update the corresponding raw stats collection
+      if (rawStats == team1Stats) {
+        if (rawValues.containsKey(key)) {
+          team1RawStats[key] = rawValues[key]!;
+        }
+      } else if (rawStats == team2Stats) {
+        if (rawValues.containsKey(key)) {
+          team2RawStats[key] = rawValues[key]!;
+        }
       }
     });
   }
   
-  // Helper method to normalize team stats from CSV data
-  Map<String, dynamic> _normalizeTeamStats(String data, Map<String, double> team1Stats, Map<String, double> team2Stats,
-      Map<String, dynamic> team1RawStats, Map<String, dynamic> team2RawStats) {
-    // Parse JSON data
-    Map<String, dynamic> parsedData = {};
-    try {
-      parsedData = json.decode(data) as Map<String, dynamic>;
-    } catch (e) {
-      print('Error parsing team stats: $e');
-      return {
-        'team1Stats': team1Stats,
-        'team2Stats': team2Stats,
-        'team1RawStats': team1RawStats,
-        'team2RawStats': team2RawStats,
-      };
-    }
-    
-    // Extract team stats from parsed data
-    if (parsedData.containsKey('team1_stats') && parsedData.containsKey('team2_stats')) {
-      Map<String, dynamic> team1Data = parsedData['team1_stats'] as Map<String, dynamic>;
-      Map<String, dynamic> team2Data = parsedData['team2_stats'] as Map<String, dynamic>;
-      
-      // Normalize and set team 1 stats
-      _normalizeAndSetTeamStats(team1Data, team1Stats);
-      
-      // Normalize and set team 2 stats
-      _normalizeAndSetTeamStats(team2Data, team2Stats);
-      
-      // Store raw values for display
-      team1Data.forEach((key, value) {
-        team1RawStats[key] = value;
-      });
-      
-      team2Data.forEach((key, value) {
-        team2RawStats[key] = value;
-      });
-    }
-    
-    return {
-      'team1Stats': team1Stats,
-      'team2Stats': team2Stats,
-      'team1RawStats': team1RawStats,
-      'team2RawStats': team2RawStats,
+  // Helper method to normalize team stats for the hexagon chart from CSV data
+  void _normalizeTeamStats(Map<String, dynamic> rawStats, Map<String, dynamic> normalizedStats, Map<String, double> rawStatsOutput) {
+    // Define max values for normalization
+    final maxValues = {
+      'PPG': 120.0, // Max points per game
+      '3PT': 45.0,  // Max 3-point percentage
+      'REB': 55.0,  // Max rebounds
+      'AST': 35.0,  // Max assists
+      'STL': 12.0,  // Max steals
+      'BLK': 8.0,   // Max blocks
     };
-  }
-  
-  // Helper method to get color for player impact visualization
-  Color _getImpactColor(double impact) {
-    // Use green for positive impact (team 1) and red for negative impact (team 2)
-    if (impact > 0) {
-      // Team 1 - green shade by magnitude
-      final magnitude = (impact * 5).clamp(0.3, 1.0);
-      return Color.fromRGBO(0, (150 * magnitude).toInt(), 0, 1.0);
-    } else {
-      // Team 2 - red shade by magnitude
-      final magnitude = (impact.abs() * 5).clamp(0.3, 1.0);
-      return Color.fromRGBO((150 * magnitude).toInt(), 0, 0, 1.0);
-    }
+    
+    // Map CSV stat names to our display names
+    final statMapping = {
+      'PTS': 'PPG',
+      'FG3_PCT': '3PT',
+      'REB': 'REB',
+      'AST': 'AST',
+      'STL': 'STL',
+      'BLK': 'BLK',
+    };
+    
+    // Process each stat from CSV data format
+    statMapping.forEach((csvKey, displayKey) {
+      if (rawStats.containsKey(csvKey) && rawStats[csvKey] is num) {
+        final rawValue = (rawStats[csvKey] as num).toDouble();
+        final maxValue = maxValues[displayKey];
+        
+        // Store raw value for display
+        rawStatsOutput[displayKey] = rawValue;
+        
+        // Calculate normalized value for the chart
+        if (maxValue != null) {
+          final normalizedValue = (rawValue / maxValue).clamp(0.0, 1.0);
+          normalizedStats[displayKey] = normalizedValue;
+        }
+      } else {
+        // Fallback if stat is missing
+        normalizedStats[displayKey] = 0.5; // Default normalized value
+      }
+    });
   }
 
-  // Helper method to format date time
-  String _formatDateTime(String dateTimeString) {
-    try {
-      final DateTime dateTime = DateTime.parse(dateTimeString);
-      return _formatDate(dateTime) + ', ' + _formatTime(dateTime.toString().split(' ')[1]);
-    } catch (e) {
-      return dateTimeString; // Return the original string if parsing fails
-    }
+  String _formatTime(TimeOfDay? time) {
+    if (time == null) return '';
+    final now = DateTime.now();
+    final dt = DateTime(now.year, now.month, now.day, time.hour, time.minute);
+    return DateFormat('h:mm a').format(dt);
   }
-  
-  // Format date for display
-  String _formatDate(DateTime date) {
+
+  String _formatDateTime(DateTime date, TimeOfDay? time) {
+    String datePart;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
     final tomorrow = today.add(const Duration(days: 1));
-    
+    final yesterday = today.subtract(const Duration(days: 1));
     final gameDay = DateTime(date.year, date.month, date.day);
-    
-    String datePart;
+
     if (gameDay == today) {
       datePart = 'Today';
     } else if (gameDay == tomorrow) {
@@ -528,30 +450,10 @@ class _TransparencyPageState extends State<TransparencyPage> {
       datePart = DateFormat('MMM d').format(date); // e.g., May 1
     }
 
-    return datePart;
+    String timePart = _formatTime(time);
+    return timePart.isEmpty ? datePart : '$datePart, $timePart';
   }
-  
-  // Format time for display
-  String _formatTime(String timeString) {
-    try {
-      // Assuming timeString is in format "HH:mm:ss"
-      final parts = timeString.split(':');
-      if (parts.length < 2) return '';
-      
-      int hour = int.parse(parts[0]);
-      final minute = parts[1];
-      final period = hour >= 12 ? 'PM' : 'AM';
-      
-      // Convert to 12-hour format
-      hour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-      
-      return '$hour:$minute $period';
-    } catch (e) {
-      return timeString; // Return the original string if parsing fails
-    }
-  }
-  
-  // Build logo widget with error fallback
+
   Widget _buildLogo(String logoPath, double size) {
     return SizedBox(
       width: size,
@@ -565,7 +467,7 @@ class _TransparencyPageState extends State<TransparencyPage> {
       ),
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -623,87 +525,69 @@ class _TransparencyPageState extends State<TransparencyPage> {
           ],
         ),
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: isDark ? const Color(0xFF2D3748) : null, // Match MainScreen dark color
+        type: BottomNavigationBarType.fixed,
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            label: 'Game',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.query_stats),
+            label: 'Stats',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.science_outlined),
+            label: 'Experiment',
+          ),
+        ],
+        currentIndex: 0, // Default to first item, as this page doesn't manage main index
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: isDark ? Colors.grey[400] : Colors.grey[600],
+        onTap: (index) {
+          // Simple pop navigation, as this page isn't the main navigation host
+          if (Navigator.canPop(context)) {
+             Navigator.popUntil(context, (route) => route.isFirst);
+          }
+          // TODO: Optionally, implement navigation to the actual main screen tabs
+          // if the structure allows, but pop is safer for now.
+        },
+      ),
     );
   }
-  
-  // Build the tab bar
-  Widget _buildTabBar() {
-    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
-    final backgroundColor = isDarkMode ? const Color(0xFF1E1E1E) : Colors.grey[200];
-    final selectedColor = isDarkMode ? Colors.white : Colors.black;
-    final unselectedColor = isDarkMode ? Colors.white70 : Colors.black54;
-    final selectedTabColor = const Color(0xFF9333EA);
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
+
+  // Helper methods for UI components
+  Color _getImpactColor(double impact) {
+    if (impact > 0.2) return Colors.green[700]!;
+    if (impact > 0.1) return Colors.green[500]!;
+    if (impact > 0.05) return Colors.amber[700]!;
+    return Colors.orange[400]!;
+  }
+
+  Widget _buildFactorRow({
+    required String factor,
+    required bool isPositive,
+    required bool isDarkMode,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
-          // Key Factors tab
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedTabIndex = 0),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: _selectedTabIndex == 0 ? selectedTabColor : backgroundColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Key Factors',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: _selectedTabIndex == 0 ? FontWeight.bold : FontWeight.normal,
-                    color: _selectedTabIndex == 0 ? Colors.white : unselectedColor,
-                  ),
-                ),
-              ),
-            ),
+          Icon(
+            isPositive ? Icons.add_circle : Icons.remove_circle,
+            size: 16,
+            color: isPositive 
+                ? (isDarkMode ? Colors.green[400] : Colors.green[700])
+                : (isDarkMode ? Colors.red[400] : Colors.red[700]),
           ),
-          // Players tab
+          const SizedBox(width: 8),
           Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedTabIndex = 1),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: _selectedTabIndex == 1 ? selectedTabColor : backgroundColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Players',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: _selectedTabIndex == 1 ? FontWeight.bold : FontWeight.normal,
-                    color: _selectedTabIndex == 1 ? Colors.white : unselectedColor,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // History tab
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedTabIndex = 2),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: _selectedTabIndex == 2 ? selectedTabColor : backgroundColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'History',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: _selectedTabIndex == 2 ? FontWeight.bold : FontWeight.normal,
-                    color: _selectedTabIndex == 2 ? Colors.white : unselectedColor,
-                  ),
-                ),
+            child: Text(
+              factor,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: isDarkMode ? Colors.white : Colors.black,
               ),
             ),
           ),
@@ -711,8 +595,89 @@ class _TransparencyPageState extends State<TransparencyPage> {
       ),
     );
   }
-  
-  // Build the content for the selected tab
+
+  Widget _buildTabBar() {
+    final themeProvider = Provider.of<ThemeProvider>(context); // Get theme provider
+    final isDark = themeProvider.isDarkMode;
+
+    final List<String> tabs = ['Key factors', 'Players', 'History'];
+    final double tabWidth = 103;
+    final double tabHeight = 27;
+    final double containerWidth = 342;
+    final double containerHeight = 39;
+    final double borderWidth = 0.2;
+    final double innerWidth = containerWidth - (2 * borderWidth);
+    final double horizontalPadding = (innerWidth - (tabs.length * tabWidth)) / 2;
+
+    // Define theme-aware colors
+    final Color selectedColor = isDark ? Colors.white : Colors.black;
+    final Color unselectedColor = isDark ? Colors.grey[400]! : const Color(0xFF4B5563);
+    final Color tabContainerBg = isDark ? const Color(0xFF2D3748) : const Color(0xFFF1F5F9); // Match GamePage
+    final Color tabContainerBorder = isDark ? Colors.grey[600]!.withOpacity(0.5) : const Color(0xFF374151).withOpacity(0.30); // Match GamePage
+    final Color selectedBg = isDark ? Colors.grey[700]! : Colors.white; // Match GamePage
+
+    return Container(
+      width: containerWidth,
+      height: containerHeight,
+      decoration: BoxDecoration(
+        color: tabContainerBg, // Apply theme-aware bg
+        borderRadius: BorderRadius.circular(5.0),
+        border: Border.all(color: tabContainerBorder, width: borderWidth), // Apply theme-aware border
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Animated Background for Selected Tab
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            left: horizontalPadding + (_selectedTabIndex * tabWidth),
+            child: Container(
+              width: tabWidth,
+              height: tabHeight,
+              decoration: BoxDecoration(
+                color: selectedBg, // Apply theme-aware selected bg
+                borderRadius: BorderRadius.circular(5.0),
+              ),
+            ),
+          ),
+          // Tab Texts
+          Padding(
+             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+             child: Row(
+               mainAxisAlignment: MainAxisAlignment.spaceBetween, // Space out tabs
+               children: List.generate(tabs.length, (index) {
+                 final bool isSelected = _selectedTabIndex == index;
+                 return GestureDetector(
+                   onTap: () {
+                     setState(() {
+                       _selectedTabIndex = index;
+                     });
+                   },
+                   child: Container(
+                      // Ensure the container covers the tappable area
+                      width: tabWidth,
+                      height: tabHeight,
+                      color: Colors.transparent, // Make container tappable but invisible
+                      alignment: Alignment.center,
+                      child: Text(
+                       tabs[index],
+                       style: GoogleFonts.poppins(
+                         fontSize: 10,
+                         fontWeight: FontWeight.w500,
+                         color: isSelected ? selectedColor : unselectedColor, // Apply theme-aware text color
+                       ),
+                     ),
+                   ),
+                 );
+               }),
+             ),
+           ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTabContent() {
     switch (_selectedTabIndex) {
       case 0:
@@ -725,8 +690,7 @@ class _TransparencyPageState extends State<TransparencyPage> {
         return _buildKeyFactorsTab();
     }
   }
-  
-  // Key Factors Tab Content
+
   Widget _buildKeyFactorsTab() {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
@@ -743,10 +707,10 @@ class _TransparencyPageState extends State<TransparencyPage> {
                   TeamStatsHexagon(
                     team1Name: widget.game.team1Name,
                     team1Stats: team1Stats,
+                    team1RawStats: team1RawStats,
                     team2Name: widget.game.team2Name,
                     team2Stats: team2Stats,
-                    team1Color: Colors.blue,
-                    team2Color: Colors.red,
+                    team2RawStats: team2RawStats,
                   ),
                   const SizedBox(height: 24),
                   
@@ -766,7 +730,6 @@ class _TransparencyPageState extends State<TransparencyPage> {
     );
   }
   
-  // Stats comparison table widget
   Widget _buildStatsComparisonTable() {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
@@ -792,7 +755,7 @@ class _TransparencyPageState extends State<TransparencyPage> {
     // Determine which stats to compare
     final comparisonStats = [
       {'label': 'Points Per Game', 'team1Key': 'PPG', 'team2Key': 'PPG', 'format': '%.1f'},
-      {'label': '3-Point %', 'team1Key': 'FG3_PCT', 'team2Key': 'FG3_PCT', 'format': '%.1f%%'},
+      {'label': '3-Point %', 'team1Key': '3PT', 'team2Key': '3PT', 'format': '%.1f%%'},
       {'label': 'Rebounds', 'team1Key': 'REB', 'team2Key': 'REB', 'format': '%.1f'},
       {'label': 'Assists', 'team1Key': 'AST', 'team2Key': 'AST', 'format': '%.1f'},
       {'label': 'Steals', 'team1Key': 'STL', 'team2Key': 'STL', 'format': '%.1f'},
@@ -838,43 +801,29 @@ class _TransparencyPageState extends State<TransparencyPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const Divider(height: 24),
             
-            // Stat rows
+            // Head-to-head comparison rows
             ...comparisonStats.map((stat) {
-              // Get values from raw stats with fallbacks
-              final team1Key = stat['team1Key'] as String;
-              final team2Key = stat['team2Key'] as String;
-              final format = stat['format'] as String;
+              // Get values with fallback to 0
+              final team1Value = team1RawStats[stat['team1Key']] ?? 0.0;
+              final team2Value = team2RawStats[stat['team2Key']] ?? 0.0;
               
-              double team1Value = 0.0;
-              double team2Value = 0.0;
+              // Determine which team has the advantage for this stat
+              final team1Better = team1Value > team2Value;
               
-              // Try to get values from raw stats, use defaults if not found
-              if (team1RawStats.containsKey(team1Key)) {
-                final value = team1RawStats[team1Key];
-                team1Value = value is double ? value : 0.0;
-              }
-              
-              if (team2RawStats.containsKey(team2Key)) {
-                final value = team2RawStats[team2Key];
-                team2Value = value is double ? value : 0.0;
-              }
-              
-              // Format the values as strings
-              String team1Str = format.contains('%') 
-                  ? format.replaceAll('%.1f', (team1Value).toStringAsFixed(1))
-                  : format.replaceAll('%.1f', team1Value.toStringAsFixed(1));
-              
-              String team2Str = format.contains('%') 
-                  ? format.replaceAll('%.1f', (team2Value).toStringAsFixed(1))
-                  : format.replaceAll('%.1f', team2Value.toStringAsFixed(1));
-              
-              // Determine which team has better stats (for highlighting)
-              final bool team1Better = team1Value > team2Value;
+              // Format the values according to the format string
+              final formatStr = stat['format'] as String;
+              final team1Str = formatStr.contains('%%') 
+                  ? formatStr.replaceFirst('%%', '%').replaceAll('%.1f', '${team1Value.toStringAsFixed(1)}')
+                  : formatStr.replaceAll('%.1f', '${team1Value.toStringAsFixed(1)}').replaceAll('%.3f', '${team1Value.toStringAsFixed(3)}');
+                  
+              final team2Str = formatStr.contains('%%') 
+                  ? formatStr.replaceFirst('%%', '%').replaceAll('%.1f', '${team2Value.toStringAsFixed(1)}')
+                  : formatStr.replaceAll('%.1f', '${team2Value.toStringAsFixed(1)}').replaceAll('%.3f', '${team2Value.toStringAsFixed(3)}');
               
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6.0),
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Row(
                   children: [
                     // Team 1 value
@@ -1035,35 +984,6 @@ class _TransparencyPageState extends State<TransparencyPage> {
     );
   }
   
-  Widget _buildFactorRow({
-    required String factor,
-    required bool isPositive,
-    required bool isDarkMode,
-  }) {
-    final Color iconColor = isPositive ? Colors.green : Colors.red;
-    final IconData icon = isPositive ? Icons.arrow_upward : Icons.arrow_downward;
-    
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: iconColor, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              factor,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: isDarkMode ? Colors.white70 : Colors.black87,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
   Widget _buildPlayerImpactVisualization() {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
@@ -1130,23 +1050,13 @@ class _TransparencyPageState extends State<TransparencyPage> {
       // Convert generated impacts to sortedPlayers format
       if (generatedImpacts.isNotEmpty) {
         sortedPlayers = generatedImpacts.entries.toList()
-          ..sort((a, b) => b.value.abs().compareTo(a.value.abs()));
+          ..sort((a, b) => (b.value).abs().compareTo((a.value).abs()));
       }
     }
     
-    // Fallback to placeholder data if no real data is available
-    if (sortedPlayers.isEmpty) {
-      final Map<String, double> placeholderImpacts = {
-        "${widget.game.team1Name} Star Player": 0.15,
-        "${widget.game.team1Name} Second Option": 0.10,
-        "${widget.game.team1Name} Role Player": 0.07,
-        "${widget.game.team2Name} Star Player": -0.15,
-        "${widget.game.team2Name} Second Option": -0.10,
-        "${widget.game.team2Name} Role Player": -0.07,
-      };
-      
-      sortedPlayers = placeholderImpacts.entries.toList()
-        ..sort((a, b) => b.value.abs().compareTo(a.value.abs()));
+    // Take only top players for visualization
+    if (sortedPlayers.length > 5) {
+      sortedPlayers = sortedPlayers.sublist(0, 5);
     }
     
     return Card(
@@ -1158,92 +1068,153 @@ class _TransparencyPageState extends State<TransparencyPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Card title
-            Text('Key Player Impacts', style: headerStyle),
-            const SizedBox(height: 4),
+            Text('Player Impact on Prediction', style: headerStyle),
+            const SizedBox(height: 8),
+            
+            // Info text
             Text(
-              'Players who contribute most significantly to their team\'s win probability',
+              'These players have the most significant impact on the game prediction.',
               style: infoStyle,
             ),
             const SizedBox(height: 16),
             
             // Player impact bars
-            ...sortedPlayers.take(6).map((entry) {
-              final playerName = entry.key;
-              final impact = entry.value is double ? entry.value as double : 0.0;
-              final absImpact = impact.abs();
-              
-              // Determine which team this player is on
-              final isTeam1 = impact > 0;
-              final teamName = isTeam1 ? widget.game.team1Name : widget.game.team2Name;
-              
-              // Set colors based on team
-              final barColor = isTeam1 ? Colors.blue.shade700 : Colors.red.shade700;
-              
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            playerName,
-                            style: playerNameStyle,
-                            overflow: TextOverflow.ellipsis,
+            if (sortedPlayers.isEmpty)
+              Center(
+                child: Text(
+                  'No player impact data available',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: isDark ? Colors.white70 : Colors.grey[700],
+                  ),
+                ),
+              )
+            else
+              ...sortedPlayers.map((entry) {
+                final playerName = entry.key;
+                final impact = entry.value as double;
+                final absImpact = impact.abs();
+                final isPositive = impact > 0;
+                final barColor = isPositive ? Colors.green.shade600 : Colors.red.shade600;
+                
+                // Get the player's team from the backend data
+                String playerTeam = '';
+                
+                // Determine player's team based on team data from our prediction response
+                if (predictionData.containsKey('team1_players') && 
+                    predictionData['team1_players'] is List) {
+                  final team1Players = predictionData['team1_players'] as List;
+                  for (final player in team1Players) {
+                    if (player is Map && player['name'] == playerName) {
+                      playerTeam = widget.game.team1Name;
+                      break;
+                    }
+                  }
+                }
+                
+                // If not found in team1, check team2
+                if (playerTeam.isEmpty && 
+                    predictionData.containsKey('team2_players') && 
+                    predictionData['team2_players'] is List) {
+                  final team2Players = predictionData['team2_players'] as List;
+                  for (final player in team2Players) {
+                    if (player is Map && player['name'] == playerName) {
+                      playerTeam = widget.game.team2Name;
+                      break;
+                    }
+                  }
+                }
+                
+                // Fallback: check team_players in keyFactors
+                if (playerTeam.isEmpty && keyFactors.containsKey('team_players')) {
+                  final teamPlayers = keyFactors['team_players'] as Map<String, dynamic>?;
+                  if (teamPlayers != null) {
+                    if (teamPlayers.containsKey(widget.game.team1Name)) {
+                      final team1Players = teamPlayers[widget.game.team1Name] as List?;
+                      if (team1Players != null && team1Players.contains(playerName)) {
+                        playerTeam = widget.game.team1Name;
+                      }
+                    }
+                    
+                    if (playerTeam.isEmpty && teamPlayers.containsKey(widget.game.team2Name)) {
+                      final team2Players = teamPlayers[widget.game.team2Name] as List?;
+                      if (team2Players != null && team2Players.contains(playerName)) {
+                        playerTeam = widget.game.team2Name;
+                      }
+                    }
+                  }
+                }
+                
+                // If we still don't have team info, provide a generic description
+                if (playerTeam.isEmpty) {
+                  playerTeam = "NBA";
+                }
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Player name and impact value
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '$playerName ($playerTeam)',
+                              style: playerNameStyle,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '$teamName', 
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: barColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        // Impact value
-                        SizedBox(
-                          width: 50,
-                          child: Text(
+                          Text(
                             '${(absImpact * 100).toStringAsFixed(1)}%',
                             style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                               color: barColor,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Impact bar
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: absImpact * 5, // Scale for better visualization
-                              backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
-                              valueColor: AlwaysStoppedAnimation<Color>(barColor),
-                              minHeight: 12,
-                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      
+                      // Impact bar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: SizedBox(
+                          height: 8,
+                          child: LinearProgressIndicator(
+                            value: absImpact > 1.0 ? 1.0 : absImpact, // Cap at 100%
+                            backgroundColor: isDark ? Colors.grey[700] : Colors.grey[300],
+                            valueColor: AlwaysStoppedAnimation<Color>(barColor),
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            }),
+                      ),
+                      
+                      // Impact description
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          isPositive 
+                            ? (playerTeam == widget.game.team1Name 
+                               ? 'Key player for ${widget.game.team1Name}'
+                               : 'Favors ${widget.game.team1Name} in prediction')
+                            : (playerTeam == widget.game.team2Name 
+                               ? 'Key player for ${widget.game.team2Name}'
+                               : 'Favors ${widget.game.team2Name} in prediction'),
+                          style: infoStyle,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
           ],
         ),
       ),
     );
   }
 
-  // Players Tab Content with team selection toggle
   Widget _buildPlayersTab() {
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -1398,7 +1369,6 @@ class _TransparencyPageState extends State<TransparencyPage> {
     );
   }
 
-  // History Tab Content - displaying head-to-head data from CSV
   Widget _buildHistoryTab() {
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -1450,46 +1420,23 @@ class _TransparencyPageState extends State<TransparencyPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${matchup['date'] ?? 'Unknown Date'}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: isDarkMode ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ),
-                          if (matchup.containsKey('location'))
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isDarkMode ? Colors.grey[700] : Colors.grey[200],
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                matchup['location'] ?? '',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: isDarkMode ? Colors.white70 : Colors.black54,
-                                ),
-                              ),
-                            ),
-                        ],
+                      Text(
+                        '${matchup['date'] ?? 'Unknown Date'}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: Text(
-                              '${matchup['team1'] ?? widget.game.team1Name}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: isDarkMode ? Colors.white : Colors.black,
-                              ),
+                          Text(
+                            '${matchup['team1'] ?? widget.game.team1Name}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: isDarkMode ? Colors.white : Colors.black,
                             ),
                           ),
                           Text(
@@ -1500,14 +1447,11 @@ class _TransparencyPageState extends State<TransparencyPage> {
                               color: isDarkMode ? Colors.white : Colors.black,
                             ),
                           ),
-                          Expanded(
-                            child: Text(
-                              '${matchup['team2'] ?? widget.game.team2Name}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: isDarkMode ? Colors.white : Colors.black,
-                              ),
-                              textAlign: TextAlign.right,
+                          Text(
+                            '${matchup['team2'] ?? widget.game.team2Name}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: isDarkMode ? Colors.white : Colors.black,
                             ),
                           ),
                         ],
@@ -1521,73 +1465,62 @@ class _TransparencyPageState extends State<TransparencyPage> {
       ),
     );
   }
-}  
+}
 
-// Game Summary Card Widget
 class _GameSummaryCard extends StatelessWidget {
   final Game game;
-  
+
   const _GameSummaryCard({required this.game});
-  
+
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
-    
-    // Card theme styling
-    final cardBgColor = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
-    final cardBorderColor = isDarkMode ? Colors.grey[800]! : Colors.grey[300]!;
-    final double logoSize = 60.0;
-    
-    // Text styling
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    final Color cardBgColor = isDark ? Colors.grey[800]! : Colors.white; // Match GameCard
+    final Color cardBorderColor = isDark ? Colors.grey[700]! : const Color(0xFFE5E7EB); // Match GameCard
+    final Color textColor = isDark ? Colors.white : Colors.black;
+    final Color secondaryTextColor = isDark ? Colors.grey[400]! : Colors.black.withOpacity(0.6); // Match GameCard
+    final Color detailTextColor = isDark ? Colors.grey[400]! : Colors.black.withOpacity(0.6); // Match GameCard's secondaryTextColor
+    final Color probabilityBarBg = isDark ? Colors.grey[600]! : const Color(0xFFD9D9D9);
+    final Color probabilityBarFill = const Color(0xFF9333EA);
+    final double logoSize = 40.0;
+
     final teamTextStyle = GoogleFonts.poppins(
-      fontSize: 16,
-      fontWeight: FontWeight.bold,
-      color: isDarkMode ? Colors.white : Colors.black,
+      color: textColor,
+      fontSize: 11, // Adjust if needed
+      fontWeight: FontWeight.w600,
     );
-    
     final labelTextStyle = GoogleFonts.poppins(
-      fontSize: 12,
-      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+      color: detailTextColor, // Home/Away uses detail color
+      fontSize: 9, // Adjust if needed
+      fontWeight: FontWeight.w400, // Adjust if needed
     );
-    
-    final winProbLabelStyle = GoogleFonts.poppins(
-      fontSize: 12,
-      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-    );
-    
     final winProbValueStyle = GoogleFonts.poppins(
-      fontSize: 16,
+      fontSize: 12, // Adjust size for combined display
       fontWeight: FontWeight.bold,
-      color: const Color(0xFF9333EA),
+      color: textColor,
     );
-    
-    // Logo builder function to handle assets with error fallback
-    Widget logoBuilder(String? logoPath, double size) {
-      return SizedBox(
-        width: size,
-        height: size,
-        child: logoPath != null && logoPath.isNotEmpty 
-          ? Image.asset(
-              'assets/logos/$logoPath',
-              fit: BoxFit.contain,
-              errorBuilder: (context, _, __) => Icon(
-                Icons.sports_basketball,
-                size: size * 0.8,
-                color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
-              ),
-            )
-          : Icon(
-              Icons.sports_basketball,
-              size: size * 0.8,
-              color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
-            ),
-      );
-    }
-    
+    final winProbLabelStyle = GoogleFonts.poppins(
+      fontSize: 10,
+      color: secondaryTextColor,
+    );
+     final detailTextStyle = GoogleFonts.poppins(
+      color: detailTextColor,
+      fontSize: 9,
+      fontWeight: FontWeight.w400,
+    );
+
+    // Access state methods via context lookup if needed, or pass them
+    // For simplicity here, assume _buildLogo is static or passed if required
+    // Correct way: pass required functions/data in constructor or use Provider/InheritedWidget
+    final logoBuilder = _TransparencyPageState()._buildLogo; // TEMPORARY direct access - fix if causes issues
+    final dateTimeFormatter = _TransparencyPageState()._formatDateTime; // TEMPORARY
+
     return Container(
+      width: 342,
       decoration: BoxDecoration(
         color: cardBgColor,
-        borderRadius: BorderRadius.circular(12.0),
+        borderRadius: BorderRadius.circular(5.0),
         border: Border.all(color: cardBorderColor, width: 1.0),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
@@ -1636,6 +1569,30 @@ class _GameSummaryCard extends StatelessWidget {
                  ),
                ],
              ),
+           ),
+           const SizedBox(height: 16), // Space before progress bar
+           // Progress Bar
+           ClipRRect(
+             borderRadius: BorderRadius.circular(100),
+             child: SizedBox(
+               height: 6,
+               child: LinearProgressIndicator(
+                 value: game.team1WinProbability,
+                 backgroundColor: probabilityBarBg,
+                 valueColor: AlwaysStoppedAnimation<Color>(probabilityBarFill),
+               ),
+             ),
+           ),
+           const SizedBox(height: 16), // Space before details
+           // Gametime/Location Details (moved back inside)
+           Text(
+             'Gametime: ${dateTimeFormatter(game.gameDate, game.gameTime)}',
+             style: detailTextStyle,
+           ),
+           const SizedBox(height: 4),
+           Text(
+             'Location: ${game.location}',
+             style: detailTextStyle,
            ),
          ],
       ),

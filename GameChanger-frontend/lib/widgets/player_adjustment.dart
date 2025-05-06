@@ -85,8 +85,8 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
 
   // Get color for factor based on player impact and active status
   Color _getFactorColor(PlayerData player, bool isDarkMode) {
-    // Get the impact factor
-    double factor = widget.playerImpactFactors[player.playerName] ?? 0.0;
+    // Get the impact factor - use the player's computed factor if not in the map
+    double factor = widget.playerImpactFactors[player.playerName] ?? _calculatePlayerImpactFactor(player);
     bool isActive = widget.playerAdjustments[player.playerName] ?? true;
     
     // Check if player is active or inactive
@@ -109,6 +109,17 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
       // Low impact
       return isDarkMode ? Colors.grey[800]! : Colors.grey[200]!; // Default grey
     }
+  }
+  
+  // Calculate a player's impact factor based on stats if not provided by API
+  double _calculatePlayerImpactFactor(PlayerData player) {
+    // Use the same formula as the backend
+    double rawImpact = (0.4 * player.points + 0.2 * player.rebounds + 
+                        0.2 * player.assists + 0.1 * player.steals + 
+                        0.1 * player.blocks) / 100.0;
+    
+    // Clamp between 0.01 and 0.20 as the backend does
+    return double.parse((rawImpact.clamp(0.01, 0.20)).toStringAsFixed(3));
   }
 
   @override
@@ -397,10 +408,10 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          // Display impact factor if available, or 0 as default
+                          // Display impact factor if available, or calculate it
                           widget.playerImpactFactors.containsKey(player.playerName)
                               ? (widget.playerImpactFactors[player.playerName]! * 100).toStringAsFixed(1) + '%'
-                              : '0%',
+                              : (_calculatePlayerImpactFactor(player) * 100).toStringAsFixed(1) + '%',
                           style: GoogleFonts.poppins(
                             fontSize: getFontSize(13),
                             color: isDarkMode ? Colors.white : Colors.black,

@@ -118,8 +118,27 @@ class PredictionService {
         final winner = data['winner'];
         final team1WinProb = data['team1_win_prob'];
         final team2WinProb = data['team2_win_prob'];
-        final playerImpacts = data['player_impacts'] ?? {};
-        final factorsData = data['performance_factors'] ?? {};
+        
+        // Safely convert player impacts to Map<String, dynamic>
+        Map<String, dynamic> playerImpacts = {};
+        if (data['player_impacts'] != null) {
+          final impacts = data['player_impacts'];
+          impacts.forEach((key, value) {
+            // Ensure keys are strings and values are properly typed
+            playerImpacts[key.toString()] = value is num ? value.toDouble() : value.toString();
+          });
+        }
+        
+        // Safely convert performance factors to Map<String, dynamic>
+        Map<String, dynamic> factorsData = {};
+        if (data['performance_factors'] != null) {
+          final factors = data['performance_factors'];
+          factors.forEach((key, value) {
+            factorsData[key.toString()] = value;
+          });
+        }
+        
+        print('Converted player impacts: $playerImpacts'); // Debug log
 
         return {
           'winner': winner,

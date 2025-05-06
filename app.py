@@ -552,8 +552,8 @@ def predict_with_performance_factors():
             for player in team2_players:
                 team_players_map[team2_name].append(player['name'])
             
-            # Add team_players to key_factors
-            key_factors['team_players'] = team_players_map
+            # We'll add team_players_map to the explanation data later
+            # Since key_factors is a list, we can't add it directly
             
             # Select top impact players from both teams
             impact_players = []
@@ -580,22 +580,53 @@ def predict_with_performance_factors():
                         break
                     impact_players.append(player)
             
-            # ... (rest of the code remains the same)
-            # Convert to format expected by frontend
+            # Debug the impact_players list
+            print(f"DEBUG: impact_players list has {len(impact_players)} items")
+            for idx, player in enumerate(impact_players):
+                print(f"DEBUG: Player {idx}: {player}")
+                
+            # Ensure we directly populate player impacts from the player CSV data
+            # Don't rely only on impact_players which might be empty
+            formatted_player_impacts = {}  # Create a fresh dict for the return value
+            
+            # Add impacts from the team players we loaded earlier
+            print("DEBUG: Adding team1_players to formatted_player_impacts")
+            for player in team1_players:
+                player_name = player['name']
+                impact_factor = player['impact_factor']
+                formatted_player_impacts[player_name] = impact_factor
+                formatted_player_impacts[f"{player_name}_team"] = team1_name
+                print(f"DEBUG: Added {player_name} with impact {impact_factor} to formatted_player_impacts")
+                
+            print("DEBUG: Adding team2_players to formatted_player_impacts")
+            for player in team2_players:
+                player_name = player['name']
+                impact_factor = player['impact_factor']
+                formatted_player_impacts[player_name] = impact_factor
+                formatted_player_impacts[f"{player_name}_team"] = team2_name
+                print(f"DEBUG: Added {player_name} with impact {impact_factor} to formatted_player_impacts")
+            
+            # Also add any players from impact_players that weren't already added
             for player in impact_players:
                 player_name = player['name']
                 player_team = player['team']
-                player_impacts[player_name] = player['impact']
+                player_impact = player.get('impact', player.get('impact_factor', 0.0))
                 
-                # Add team information for each player
-                player_impacts[f"{player_name}_team"] = player_team
+                # Only add if not already added
+                if player_name not in formatted_player_impacts:
+                    formatted_player_impacts[player_name] = player_impact
+                    formatted_player_impacts[f"{player_name}_team"] = player_team
+                    print(f"DEBUG: Added additional player {player_name} with impact {player_impact} to formatted_player_impacts")
+            
+            print(f"DEBUG: Final formatted_player_impacts has {len(formatted_player_impacts)/2} players")
+            print(f"DEBUG: formatted_player_impacts: {formatted_player_impacts}")
             
             # Return results with explanation data
             return jsonify({
                 'winner': winner,
                 'team1_win_prob': final_team1_win_prob,
                 'team2_win_prob': final_team2_win_prob,
-                'player_impacts': player_impacts,
+                'player_impacts': formatted_player_impacts,
                 'performance_factors': {
                     'home_team': home_team,
                     'team1_rest_days': team1_data['rest_days'],

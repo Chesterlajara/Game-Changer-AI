@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 
 import '../../models/game_model.dart';
 import '../../providers/theme_provider.dart';
+import '../../services/prediction_service.dart';
+import '../../services/team_stats_service.dart';
+import '../../widgets/team_stats_hexagon.dart';
 
 class TransparencyPage extends StatefulWidget {
   final Game game;
@@ -18,6 +21,172 @@ class TransparencyPage extends StatefulWidget {
 
 class _TransparencyPageState extends State<TransparencyPage> {
   int _selectedTabIndex = 0;
+
+  // Data holders
+  bool isLoading = true;
+  Map<String, dynamic> predictionData = {};
+  Map<String, dynamic> keyFactors = {};
+  Map<String, dynamic> playerImpacts = {};
+  Map<String, dynamic> historicalData = {};
+  
+  // Team statistics for the hexagon chart
+  Map<String, double> team1Stats = {
+    'PPG': 0.6,
+    '3PT': 0.5,
+    'REB': 0.7,
+    'AST': 0.4,
+    'STL': 0.5,
+    'BLK': 0.3,
+  };
+  
+  Map<String, double> team2Stats = {
+    'PPG': 0.4,
+    '3PT': 0.3,
+    'REB': 0.3,
+    'AST': 0.6,
+    'STL': 0.7,
+    'BLK': 0.5,
+  };
+  
+  // Raw team statistics (actual values, not normalized)
+  Map<String, double> team1RawStats = {
+    'PPG': 106.5,
+    '3PT': 36.7,
+    'REB': 45.2,
+    'AST': 25.8,
+    'STL': 8.4,
+    'BLK': 5.1,
+  };
+  
+  Map<String, double> team2RawStats = {
+    'PPG': 102.3,
+    '3PT': 34.2,
+    'REB': 42.5,
+    'AST': 23.6,
+    'STL': 7.6,
+    'BLK': 4.2,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAnalysisData();
+  }
+
+  Future<void> _fetchAnalysisData() async {
+    setState(() {
+      isLoading = true;
+    });
+    
+    try {
+      // Fetch predictions and team stats in parallel
+      final predictionFuture = PredictionService.predictWithPerformanceFactors(
+        widget.game.team1Name,
+        widget.game.team2Name,
+        {}, // Empty player adjustments, get baseline prediction
+        {
+          'home_court_advantage': 5,
+          'rest_days_impact': 5,
+          'recent_form_weight': 5,
+        },
+      );
+      
+      // Fetch real team statistics from CSV data
+      final teamStatsFuture = TeamStatsService.getTeamStats(
+        widget.game.team1Name,
+        widget.game.team2Name,
+      );
+      
+      // Wait for both futures to complete
+      final results = await Future.wait([predictionFuture, teamStatsFuture]);
+      final predictionResult = results[0];
+      final teamStatsResult = results[1];
+      
+      // Process the team stats to get both normalized and raw values
+      final processedStats = TeamStatsService.processTeamStats(
+        teamStatsResult,
+        widget.game.team1Name,
+        widget.game.team2Name,
+      );
+      
+      setState(() {
+        // Set prediction data
+        predictionData = predictionResult;
+        keyFactors = predictionResult['explanation_data'] ?? {};
+        playerImpacts = predictionResult['player_impacts'] ?? {};
+        historicalData = predictionResult['historical_data'] ?? {};
+        
+        // Set team stats from the real data
+        team1Stats = processedStats['team1Stats'] ?? team1Stats;
+        team2Stats = processedStats['team2Stats'] ?? team2Stats;
+        team1RawStats = processedStats['team1RawStats'] ?? team1RawStats;
+        team2RawStats = processedStats['team2RawStats'] ?? team2RawStats;
+        
+        isLoading = false;
+      });
+    } catch (e) {
+      print('Error fetching analysis data: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+  
+  // Helper method to normalize team stats for the hexagon chart and also set raw stats
+  void _normalizeAndSetTeamStats(Map<String, dynamic> rawStats, Map<String, double> targetStats) {
+    // Define max values for normalization
+    final maxValues = {
+      'PPG': 120.0, // Max points per game
+      '3PT': 45.0,  // Max 3-point percentage
+      'REB': 55.0,  // Max rebounds
+      'AST': 35.0,  // Max assists
+      'STL': 12.0,  // Max steals
+      'BLK': 8.0,   // Max blocks
+    };
+    
+    // Map API stat names to our display names if needed
+    final statMapping = {
+      'points_per_game': 'PPG',
+      'three_point_percentage': '3PT',
+      'rebounds_per_game': 'REB',
+      'assists_per_game': 'AST',
+      'steals_per_game': 'STL',
+      'blocks_per_game': 'BLK',
+    };
+    
+    // Process stats for both normalized chart values and raw display values
+    Map<String, double> rawValues = {};
+    
+    rawStats.forEach((key, value) {
+      final displayKey = statMapping[key] ?? key;
+      if (maxValues.containsKey(displayKey) && value is num) {
+        // Store the raw value for display
+        rawValues[displayKey] = value.toDouble();
+        
+        // Calculate normalized value for the chart
+        final normalized = (value / maxValues[displayKey]!).clamp(0.0, 1.0);
+        targetStats[displayKey] = normalized;
+      }
+    });
+    
+    // Add fallback values for missing stats
+    maxValues.keys.forEach((key) {
+      if (!targetStats.containsKey(key)) {
+        targetStats[key] = 0.5; // Default normalized value
+      }
+      
+      // Update the corresponding raw stats collection
+      if (rawStats == team1Stats) {
+        if (rawValues.containsKey(key)) {
+          team1RawStats[key] = rawValues[key]!;
+        }
+      } else if (rawStats == team2Stats) {
+        if (rawValues.containsKey(key)) {
+          team2RawStats[key] = rawValues[key]!;
+        }
+      }
+    });
+  }
 
   String _formatTime(TimeOfDay? time) {
     if (time == null) return '';
@@ -115,7 +284,7 @@ class _TransparencyPageState extends State<TransparencyPage> {
             const SizedBox(height: 20), // Space between card and tab bar
             _buildTabBar(), // Add the tab bar
             const SizedBox(height: 20), // Space below tab bar
-            _buildTabContent(), // Add placeholder for tab content
+            _buildTabContent(), // Implemented tab content
           ],
         ),
       ),
@@ -147,6 +316,45 @@ class _TransparencyPageState extends State<TransparencyPage> {
           // TODO: Optionally, implement navigation to the actual main screen tabs
           // if the structure allows, but pop is safer for now.
         },
+      ),
+    );
+  }
+
+  // Helper methods for UI components
+  Color _getImpactColor(double impact) {
+    if (impact > 0.2) return Colors.green[700]!;
+    if (impact > 0.1) return Colors.green[500]!;
+    if (impact > 0.05) return Colors.amber[700]!;
+    return Colors.orange[400]!;
+  }
+
+  Widget _buildFactorRow({
+    required String factor,
+    required bool isPositive,
+    required bool isDarkMode,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            isPositive ? Icons.add_circle : Icons.remove_circle,
+            size: 16,
+            color: isPositive 
+                ? (isDarkMode ? Colors.green[400] : Colors.green[700])
+                : (isDarkMode ? Colors.red[400] : Colors.red[700]),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              factor,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: isDarkMode ? Colors.white : Colors.black,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -234,12 +442,313 @@ class _TransparencyPageState extends State<TransparencyPage> {
   }
 
   Widget _buildTabContent() {
-    // Replace this with actual content based on _selectedTabIndex
-    final List<String> tabs = ['Key factors', 'Players', 'History'];
-    return Center(
-      child: Text(
-        'Content for: ${tabs[_selectedTabIndex]}',
-        style: GoogleFonts.poppins(color: Provider.of<ThemeProvider>(context).isDarkMode ? Colors.white : Colors.black),
+    switch (_selectedTabIndex) {
+      case 0:
+        return _buildKeyFactorsTab();
+      case 1:
+        return _buildPlayersTab();
+      case 2:
+        return _buildHistoryTab();
+      default:
+        return _buildKeyFactorsTab();
+    }
+  }
+
+  Widget _buildKeyFactorsTab() {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    final winningTeam = widget.game.team1WinProbability > widget.game.team2WinProbability 
+        ? widget.game.team1Name 
+        : widget.game.team2Name;
+    final losingTeam = widget.game.team1WinProbability > widget.game.team2WinProbability 
+        ? widget.game.team2Name 
+        : widget.game.team1Name;
+    
+    // Get team strengths and weaknesses from explanation data
+    List<String> winningFactors = [];
+    List<String> losingFactors = [];
+    
+    if (keyFactors.containsKey('team_strengths')) {
+      if (keyFactors['team_strengths'].containsKey(winningTeam)) {
+        winningFactors = List<String>.from(keyFactors['team_strengths'][winningTeam]);
+      }
+    }
+    
+    if (keyFactors.containsKey('team_weaknesses')) {
+      if (keyFactors['team_weaknesses'].containsKey(losingTeam)) {
+        losingFactors = List<String>.from(keyFactors['team_weaknesses'][losingTeam]);
+      }
+    }
+    
+    // Fallback if backend doesn't provide data
+    if (winningFactors.isEmpty) {
+      winningFactors = [
+        'Superior offensive efficiency',
+        'Better rebounding performance',
+        'Higher 3-point shooting percentage',
+      ];
+    }
+    
+    if (losingFactors.isEmpty) {
+      losingFactors = [
+        'Weak perimeter defense',
+        'Poor rebounding against larger teams',
+        'Low 3-point shooting percentage',
+      ];
+    }
+    
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Hexagon Chart Section
+          Padding(
+            padding: const EdgeInsets.only(bottom: 20.0),
+            child: TeamStatsHexagon(
+              team1Stats: team1Stats,
+              team2Stats: team2Stats,
+              team1Name: widget.game.team1Name,
+              team2Name: widget.game.team2Name,
+              team1Color: Colors.blue,
+              team2Color: Colors.red,
+              team1RawStats: team1RawStats,
+              team2RawStats: team2RawStats,
+            ),
+          ),
+          
+          // Divider
+          Divider(color: isDarkMode ? Colors.grey[700] : Colors.grey[300]),
+          
+          // Factors Section
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Winning team strengths
+                Text(
+                  'Why $winningTeam Wins',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...winningFactors.map((factor) => _buildFactorRow(
+                  factor: factor,
+                  isPositive: true,
+                  isDarkMode: isDarkMode,
+                )),
+                
+                const SizedBox(height: 16),
+                
+                // Losing team weaknesses
+                Text(
+                  'Why $losingTeam Falls Short',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...losingFactors.map((factor) => _buildFactorRow(
+                  factor: factor,
+                  isPositive: false,
+                  isDarkMode: isDarkMode,
+                )),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayersTab() {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    List<MapEntry<String, dynamic>> sortedPlayers = [];
+    
+    // Parse player impact data if available
+    if (playerImpacts.isNotEmpty) {
+      sortedPlayers = playerImpacts.entries.toList()
+        ..sort((a, b) => (b.value as num).compareTo(a.value as num));
+    }
+    
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Key Player Impact',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            if (sortedPlayers.isEmpty)
+              Text(
+                'No player impact data available',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: isDarkMode ? Colors.white70 : Colors.black87,
+                ),
+              )
+            else
+              ...sortedPlayers.take(10).map((entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Card(
+                  color: isDarkMode ? Colors.grey[800] : Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.person,
+                          size: 24,
+                          color: isDarkMode ? Colors.blue[300] : Colors.blue[700],
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            entry.key,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getImpactColor(entry.value is double ? entry.value : 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${((entry.value is double ? entry.value : 0.1) * 100).toStringAsFixed(1)}%',
+                            style: GoogleFonts.poppins(fontSize: 12, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryTab() {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    List<Map<String, dynamic>> matchups = [];
+    
+    // Parse historical data if available
+    if (historicalData.containsKey('head_to_head')) {
+      try {
+        matchups = List<Map<String, dynamic>>.from(historicalData['head_to_head']);
+      } catch (e) {
+        print('Error parsing historical data: $e');
+      }
+    }
+    
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Head-to-Head History',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            if (matchups.isEmpty)
+              Text(
+                'No historical matchup data available',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: isDarkMode ? Colors.white70 : Colors.black87,
+                ),
+              )
+            else
+              ...matchups.map((matchup) => Card(
+                color: isDarkMode ? Colors.grey[800] : Colors.white,
+                margin: const EdgeInsets.only(bottom: 8.0),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${matchup['date'] ?? 'Unknown Date'}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${matchup['team1'] ?? widget.game.team1Name}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
+                          ),
+                          Text(
+                            '${matchup['score1'] ?? '0'} - ${matchup['score2'] ?? '0'}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
+                          ),
+                          Text(
+                            '${matchup['team2'] ?? widget.game.team2Name}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              )),
+          ],
+        ),
       ),
     );
   }

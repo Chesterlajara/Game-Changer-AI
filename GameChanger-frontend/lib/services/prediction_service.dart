@@ -93,28 +93,47 @@ class PredictionService {
 
 
   // Method to predict winner considering both player availability and performance factors
-  static Future<Map<String, dynamic>> predictWithPerformanceFactors(
-    String team1,
-    String team2,
-    Map<String, bool> playerAvailability,
-    Map<String, int> performanceFactors,
-  ) async {
+  static Future<Map<String, dynamic>> predictWithPerformanceFactors({
+    required String team1,
+    required String team2,
+    Map<String, bool> playerAvailability = const {},
+    Map<String, dynamic> performanceFactors = const {},
+  }) async {
+    // Log the input data for debugging
+    print('Sending predict-with-performance-factors request:');
+    print('team1: $team1, team2: $team2');
+    print('inactive_players: $playerAvailability');
+    print('performance_factors: $performanceFactors');
+
+    // Convert player impacts for sending to backend
+    final convertedPlayerImpacts = {};
+    
+    // This is the key change - we need to identify which players are INACTIVE
+    // The frontend uses isActive = true for active players
+    // The backend expects is_inactive = true for inactive players
+    // So we need to invert the boolean when sending to backend
+    Map<String, bool> inactivePlayers = {};
+    playerAvailability.forEach((player, isActive) {
+      // Send the player as inactive (true) if they are not active (false) in the frontend
+      inactivePlayers[player] = !isActive;
+    });
+    
+    print('FIXED inactive_players format: $inactivePlayers');
+
     try {
-      final response = await http.post(
-        Uri.parse('${PredictionService.baseUrl}/predict-with-performance-factors'),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-        body: jsonEncode(<String, dynamic>{
-          'team1': team1,
-          'team2': team2,
-          'inactive_players': playerAvailability,
-          'performance_factors': performanceFactors,
-        }),
-      );
+      final response = await http.post(Uri.parse('$baseUrl/predict-with-performance-factors'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'team1': team1,
+            'team2': team2,
+            'inactive_players': inactivePlayers,
+            'performance_factors': performanceFactors,
+            'player_impacts': convertedPlayerImpacts,
+          }));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        print('Got prediction result with performance factors: $data');
         final winner = data['winner'];
         final team1WinProb = data['team1_win_prob'];
         final team2WinProb = data['team2_win_prob'];
@@ -138,7 +157,7 @@ class PredictionService {
           });
         }
         
-        print('Converted player impacts: $playerImpacts'); // Debug log
+        print('Performance factors data: $factorsData'); // Debug log
 
         return {
           'winner': winner,

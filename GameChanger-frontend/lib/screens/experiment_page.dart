@@ -97,12 +97,12 @@ class _ExperimentPageState extends State<ExperimentPage> {
     });
     
     try {
-      // Use the new predictWithPerformanceFactors endpoint
+      // Use the new predictWithPerformanceFactors endpoint with named parameters
       final result = await PredictionService.predictWithPerformanceFactors(
-        selectedTeam1!,
-        selectedTeam2!,
-        playerAdjustments,
-        performanceFactors,
+        team1: selectedTeam1!,
+        team2: selectedTeam2!,
+        playerAvailability: playerAdjustments,
+        performanceFactors: performanceFactors,
       );
       
       print('Got prediction result with performance factors: $result');

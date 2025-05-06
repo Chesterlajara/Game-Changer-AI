@@ -417,8 +417,13 @@ def predict_with_performance_factors():
                         team2_impact += impact
                         print(f"Fallback: Adding impact {impact} to team2 for {player_name}")
             
-            team1_win_prob = baseline_prediction['team1_win_probability'] * (1 - team2_impact)
-            team2_win_prob = baseline_prediction['team2_win_probability'] * (1 - team1_impact)
+            # FIXED: When team1 players are inactive (high team1_impact), their win probability should decrease
+            team1_win_prob = baseline_prediction['team1_win_probability'] * (1 - team1_impact)
+            team2_win_prob = baseline_prediction['team2_win_probability'] * (1 - team2_impact)
+            
+            print(f"Team1 impact: {team1_impact}, Team2 impact: {team2_impact}")
+            print(f"Original probabilities: team1={baseline_prediction['team1_win_probability']}, team2={baseline_prediction['team2_win_probability']}")
+            print(f"Adjusted probabilities: team1={team1_win_prob}, team2={team2_win_prob}")
             
             # Normalize to ensure they sum to 1
             total = team1_win_prob + team2_win_prob

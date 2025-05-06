@@ -11,6 +11,7 @@ import '../widgets/prediction_card.dart';
 import '../widgets/prediction_insights_card.dart';
 import '../providers/theme_provider.dart';
 import '../models/prediction_model.dart';
+import '../utils/logo_helper.dart';
 
 class ExperimentPage extends StatefulWidget {
   const ExperimentPage({super.key});
@@ -273,22 +274,7 @@ class _ExperimentPageState extends State<ExperimentPage> {
                                         ),
                                         child: Padding(
                                           padding: const EdgeInsets.all(8.0),
-                                          child: Image.asset(
-                                            'assets/logos/${selectedTeam1!.toLowerCase().replaceAll(' ', '_')}_logo.png',
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Center(
-                                                child: Text(
-                                                  selectedTeam1!,
-                                                  style: GoogleFonts.poppins(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: themeProvider.isDarkMode ? Colors.white : Colors.black,
-                                                  ),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              );
-                                            },
-                                          ),
+                                          child: LogoHelper.buildTeamLogo(selectedTeam1!, 120),
                                         ),
                                       ),
                                   ],
@@ -420,22 +406,7 @@ class _ExperimentPageState extends State<ExperimentPage> {
                                         ),
                                         child: Padding(
                                           padding: const EdgeInsets.all(8.0),
-                                          child: Image.asset(
-                                            'assets/logos/${selectedTeam2!.toLowerCase().replaceAll(' ', '_')}_logo.png',
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Center(
-                                                child: Text(
-                                                  selectedTeam2!,
-                                                  style: GoogleFonts.poppins(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: themeProvider.isDarkMode ? Colors.white : Colors.black,
-                                                  ),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              );
-                                            },
-                                          ),
+                                          child: LogoHelper.buildTeamLogo(selectedTeam2!, 120),
                                         ),
                                       ),
                                   ],

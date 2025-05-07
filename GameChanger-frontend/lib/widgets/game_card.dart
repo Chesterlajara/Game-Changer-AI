@@ -10,11 +10,17 @@ import '../screens/analysis/transparency_page.dart'; // Import the new page
 import 'package:google_fonts/google_fonts.dart';
 
 
+
+
 class GameCard extends StatelessWidget {
   final Game game;
 
 
+
+
   const GameCard({super.key, required this.game});
+
+
 
 
   // Helper to format TimeOfDay (e.g., 8:00 AM)
@@ -33,10 +39,14 @@ class GameCard extends StatelessWidget {
   }
 
 
+
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
+
+
 
 
     // Define colors based on theme
@@ -48,6 +58,8 @@ class GameCard extends StatelessWidget {
     final Color liveBadgeBg = isDark ? const Color(0xFF5A2D2D) : const Color(0xFFFEE2E2);
     final Color liveBadgeText = isDark ? Colors.red[200]! : const Color(0xFF991B1B);
     final Color analysisButtonTextColor = isDark ? Colors.white : Colors.black;
+
+
 
 
     return Container(
@@ -87,17 +99,17 @@ class GameCard extends StatelessWidget {
                 Text(
                   _formatGameTime(game.gameTime!),
                   style: GoogleFonts.poppins(
-                    color: const Color(0xFF000000), 
+                    color: const Color(0xFF000000),
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
                 )
               else
-                const SizedBox(height: 15), 
+                const SizedBox(height: 15),
              
               // View Analysis Button
               Row(
-                mainAxisAlignment: MainAxisAlignment.end, 
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
                     onPressed: () {
@@ -106,7 +118,7 @@ class GameCard extends StatelessWidget {
                         context,
                         MaterialPageRoute(builder: (context) => TransparencyPage(game: game)), // Pass game object
                       );
-                      print('Navigate to Analysis for ${game.team1Name} vs ${game.team2Name}'); 
+                      print('Navigate to Analysis for ${game.team1Name} vs ${game.team2Name}');
                     },
                     // Swapped icon and label
                     icon: Text(
@@ -124,12 +136,16 @@ class GameCard extends StatelessWidget {
                     ),
 
 
+
+
                   ),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 10),
+
+
 
 
           // Middle Row: Logos, Names, Probabilities
@@ -143,12 +159,12 @@ Row(
       children: [
         // Add Container around the logo
         Container(
-          width: 40,
-          height: 40,
+          width: 60,
+          height: 60,
           margin: EdgeInsets.all(15),
           decoration: BoxDecoration(
-            border: Border.all(color: cardBorderColor, width: 1), 
-        
+            border: Border.all(color: cardBorderColor, width: 1),
+       
           ),
           child: _buildTeamLogo(game.team1LogoPath, 40),
         ),
@@ -186,8 +202,8 @@ Row(
               style: GoogleFonts.poppins(
                 color: textColor,
                 fontSize: (game.team1WinProbability > game.team2WinProbability)
-                    ? 26 
-                    : 22, 
+                    ? 29
+                    : 22,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -208,8 +224,8 @@ Row(
               style: GoogleFonts.poppins(
                 color: textColor,
                 fontSize: (game.team2WinProbability > game.team1WinProbability)
-                    ? 23 
-                    : 18, 
+                    ? 29
+                    : 22,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -219,18 +235,20 @@ Row(
     ),
 
 
+
+
     // Team 2 Info
     Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Add Container around the logo
         Container(
-          width: 40,
-          height: 40,
+          width: 60,
+          height: 60,
           margin: EdgeInsets.all(15),
           decoration: BoxDecoration(
-            border: Border.all(color: cardBorderColor, width: 1), 
-        
+            border: Border.all(color: cardBorderColor, width: 1),
+       
           ),
           child: _buildTeamLogo(game.team2LogoPath, 40),
         ),
@@ -249,38 +267,67 @@ Row(
 ),
 
 
-          const SizedBox(height: 10),
+
+
+          const SizedBox(height: 20),
+
+
 
 
           // Bottom Row: Probability Bar
           ClipRRect(
-             borderRadius: BorderRadius.circular(100),
-             child: SizedBox(
-                width: 322,
-                height: 6,
-                child: Stack(
-                  children: [
-                    Container(
-                      color: probabilityBarBg, 
-                    ),
-                    FractionallySizedBox(
-                      widthFactor: game.team1WinProbability, 
-                      child: Container(
-                         decoration: BoxDecoration(
-                            color: const Color(0xFF365772),
-                            borderRadius: BorderRadius.circular(100), 
-                         ),
-                      ),
-                    ),
-                  ],
+  borderRadius: BorderRadius.circular(100),
+  child: SizedBox(
+    width: 322,
+    height: 15,
+    child: Stack(
+      children: [
+        // Team 1 fill - aligned to the left
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: game.team1WinProbability,
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF2D7A4B),
+                borderRadius: BorderRadius.horizontal(
+                  left: Radius.circular(100),
                 ),
-             ),
+              ),
+            ),
           ),
+        ),
+        // Team 2 fill - aligned to the right
+        Align(
+          alignment: Alignment.centerRight,
+          child: FractionallySizedBox(
+            widthFactor: 1 - game.team1WinProbability,
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF9B1B30),
+                borderRadius: BorderRadius.horizontal(
+                  right: Radius.circular(100),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  ),
+),
+
+
           const SizedBox(height: 20),
         ],
       ),
     );
   }
 }
+
+
+
+
+
 
 

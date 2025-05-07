@@ -45,7 +45,7 @@ In its initial release, GameChangerAI will:
 
 ## 📱 Features (Coming Soon)
 
-- Real-time game prediction updates  
+- Game prediction updates  
 - Historical matchup analysis  
 - Player performance impact visualization  
 - Interactive simulation interface  
@@ -53,9 +53,10 @@ In its initial release, GameChangerAI will:
 ---
 
 ## 🧠 Team & Contributors
-
-- **Mann Lester M. Magbuhos** – Full Stack Developer, AI Model Integrator  
-<!-- Add additional contributors here -->
+- **Christine Joyce De Leon** - Frontend Developer, UI/UX Designer
+- **Chester Lajara** - Frontend Developer, Quality Assurance, Project Manager
+- **Mann Lester Magbuhos** – Full Stack Developer, UI/UX Designer, AI Model Integrator  
+- **Marc Linus Rosales** - AI Model Integrator, Backend Developer
 
 ---
 
@@ -70,5 +71,4 @@ This project is licensed under the [MIT License](LICENSE).
 For suggestions, bug reports, or contributions:
 
 - 📧 **mannlesterm@gmail.com**  
-- 🔗 [LinkedIn](https://www.linkedin.com/in/mann-lester-magbuhos-182ba1281/)  
 - 🔗 [GitHub](https://github.com/MannLester)

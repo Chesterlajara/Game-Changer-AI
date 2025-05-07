@@ -642,12 +642,12 @@ class _TransparencyPageState extends State<TransparencyPage> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
     final Color iconColor = isDark ? Colors.white : const Color(0xFF1D1B20);
-    final Color titleColor = const Color(0xFF9333EA);
+    final Color titleColor = const Color(0xFF365772);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF3F3F3),
+      backgroundColor: isDark ? Colors.black : const Color(0xFFF4F4F4),
       appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF2D3748) : Colors.transparent, // Match GamePage AppBar color
+        backgroundColor: isDark ? Colors.black : const Color(0xFFF4F4F4),
         elevation: 0,
         leading: IconButton(
           icon: SvgPicture.asset(
@@ -703,12 +703,12 @@ class _TransparencyPageState extends State<TransparencyPage> {
     final backgroundColor = isDarkMode ? const Color(0xFF1E1E1E) : Colors.grey[200];
     final selectedColor = isDarkMode ? Colors.white : Colors.black;
     final unselectedColor = isDarkMode ? Colors.white70 : Colors.black54;
-    final selectedTabColor = const Color(0xFF9333EA);
+    final selectedTabColor = const Color(0xFF365772);
     
     return Container(
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
         children: [
@@ -720,7 +720,7 @@ class _TransparencyPageState extends State<TransparencyPage> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 0 ? selectedTabColor : backgroundColor,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(25),
                 ),
                 child: Text(
                   'Key Factors',
@@ -742,7 +742,7 @@ class _TransparencyPageState extends State<TransparencyPage> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 1 ? selectedTabColor : backgroundColor,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(25),
                 ),
                 child: Text(
                   'Players',
@@ -764,7 +764,7 @@ class _TransparencyPageState extends State<TransparencyPage> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: _selectedTabIndex == 2 ? selectedTabColor : backgroundColor,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(25),
                 ),
                 child: Text(
                   'History',
@@ -1366,7 +1366,7 @@ class _TransparencyPageState extends State<TransparencyPage> {
                 Container(
                   decoration: BoxDecoration(
                     color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(25),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1451,9 +1451,9 @@ class _TransparencyPageState extends State<TransparencyPage> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected 
-              ? (isDarkMode ? Colors.blue[700] : Colors.blue[600])
+              ? (isDarkMode ? Colors.blue[700] : const Color(0xFF365772))
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(25),
         ),
         child: Text(
           label,
@@ -1629,7 +1629,7 @@ class _GameSummaryCard extends StatelessWidget {
     final winProbValueStyle = GoogleFonts.poppins(
       fontSize: 16,
       fontWeight: FontWeight.bold,
-      color: const Color(0xFF9333EA),
+      color: const Color(0xFF365772),
     );
     
     // Logo builder function using the centralized LogoHelper
@@ -1681,10 +1681,29 @@ class _GameSummaryCard extends StatelessWidget {
                      children: [
                        Text('Win Probability', style: winProbLabelStyle),
                        const SizedBox(height: 4),
-                       Text(
-                         '${(game.team1WinProbability * 100).toStringAsFixed(0)}% - ${(game.team2WinProbability * 100).toStringAsFixed(0)}%',
-                         style: winProbValueStyle,
-                       ),
+                       Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${(game.team1WinProbability * 100).toStringAsFixed(0)}%',
+                              style: winProbValueStyle.copyWith(
+                                fontSize: game.team1WinProbability >= game.team2WinProbability ? 29: 25,
+                              ),
+                            ),
+                            const TextSpan(
+                              text: ' - ',
+                              style: TextStyle(fontSize: 20),
+                            ),
+                            TextSpan(
+                              text: '${(game.team2WinProbability * 100).toStringAsFixed(0)}%',
+                              style: winProbValueStyle.copyWith(
+                                fontSize: game.team2WinProbability > game.team1WinProbability ? 29: 25,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
                      ],
                    ),
                  ),
@@ -1706,3 +1725,5 @@ class _GameSummaryCard extends StatelessWidget {
     );
   }
 }
+
+

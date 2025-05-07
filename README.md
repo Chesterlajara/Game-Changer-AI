@@ -117,14 +117,14 @@ This project is licensed under the [MIT License](LICENSE).
 
 For suggestions, bug reports, or contributions:
 
-- 📧 **mannlesterm@gmail.com**  
+- 📧 **deleonchristinejoyce1@gmail.co**  
 - 🔗 [GitHub](https://github.com/christinedln)
 
-- 📧 **mannlesterm@gmail.com**  
-- 🔗 [GitHub](https://github.com/MannLester)
+- 📧 **chesterlajara234@gmail.com**  
+- 🔗 [GitHub](https://github.com/Chesterlajara)
 
-- 📧 **mannlesterm@gmail.com**  
-- 🔗 [GitHub](https://github.com/MannLester)
+- 📧 **Rosalesmarclinus@gmail.com**  
+- 🔗 [GitHub](https://github.com/MarcLinus)
 
 - 📧 **mannlesterm@gmail.com**  
 - 🔗 [GitHub](https://github.com/MannLester)

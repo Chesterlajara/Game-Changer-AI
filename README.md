@@ -1,60 +1,74 @@
-# Game Changer AI
+# 🏀 GameChangerAI
 
-A mobile application that leverages the power of AI for basketball game predictions with transparent reasoning.
+**GameChangerAI** is a mobile application designed to deliver data-driven predictions for NBA basketball games using advanced machine learning algorithms. Built with Flutter, it helps users—ranging from casual fans to analysts and sports bettors—understand game dynamics through transparent and insightful win probability forecasts.
 
-## Project Overview
+---
 
-Game Changer AI is a mobile application that uses artificial intelligence for predictive analysis of basketball games. It focuses on real-time data, individual player stats, and provides transparent prediction logic to users.
+## 📌 Purpose
 
-### Key Features
+GameChangerAI empowers users to make more informed decisions about NBA basketball games by offering:
 
-- AI-based game prediction model
-- Transparent prediction logic
-- Real-time NBA data integration
-- User-driven customization for predictions
+- Accurate **win probability predictions**
+- **Clear explanations** behind each prediction
+- **Simulation tools** for hypothetical matchups with user-defined variables
 
-## Project Structure
+---
 
-- `app.py`: Flask backend API for the Flutter frontend
-- `requirements.txt`: Python dependencies
+## 📈 Scope
 
-## Setup Instructions
+In its initial release, GameChangerAI will:
 
-### Backend Setup
+- ✅ Focus exclusively on **NBA basketball games**
+- ✅ Leverage **real-time data** (e.g., player stats, injuries, team trends) from the NBA Stats API
+- ✅ Provide **transparent reasoning** behind each AI-driven prediction
+- ✅ Include tools to simulate outcomes of **custom matchups**
+- ✅ Be developed and deployed for **mobile platforms** using **Flutter**
 
-1. Create a virtual environment:
-   ```
-   python -m venv .venv
-   ```
+---
 
-2. Activate the virtual environment:
-   - Windows: `.venv\Scripts\activate`
-   - macOS/Linux: `source .venv/bin/activate`
+## ⚠️ Limitations
 
-3. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
+- ❌ Currently supports **only NBA** (no other sports or leagues)
+- ⚠️ Predictions rely on the **availability and accuracy** of data from the NBA Stats API
+- 🚫 AI predictions are **not 100% guaranteed**, as real-world sports contain unpredictable elements
 
-4. Run the Flask application:
-   ```
-   python app.py
-   ```
+---
 
-### Flutter Setup (Coming Soon)
+## 🛠️ Tech Stack
 
-Flutter frontend setup instructions will be added as the project progresses.
+- **Frontend**: Flutter
+- **Backend/AI**: Python (TensorFlow / scikit-learn, etc.)
+- **Data Source**: NBA Stats API
+- **Version Control**: GitHub
 
-## API Endpoints
+---
 
-- `/api/games`: Get current and upcoming games
-- `/api/player/<player_id>`: Get player career stats
-- `/api/predictions/<game_id>`: Get prediction for a specific game
-- `/api/simulation`: Run custom game simulation
-- `/api/teams`: Get list of all NBA teams
+## 📱 Features (Coming Soon)
 
-## Technologies Used
+- Real-time game prediction updates  
+- Historical matchup analysis  
+- Player performance impact visualization  
+- Interactive simulation interface  
 
-- Backend: Flask, NBA API, pandas, NumPy, scikit-learn
-- Frontend (Planned): Flutter
-- Database (Planned): Firebase Firestore
+---
+
+## 🧠 Team & Contributors
+
+- **Mann Lester M. Magbuhos** – Full Stack Developer, AI Model Integrator  
+<!-- Add additional contributors here -->
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+## 📬 Contact
+
+For suggestions, bug reports, or contributions:
+
+- 📧 **mannlesterm@gmail.com**  
+- 🔗 [LinkedIn](https://www.linkedin.com/in/mann-lester-magbuhos-182ba1281/)  
+- 🔗 [GitHub](https://github.com/MannLester)

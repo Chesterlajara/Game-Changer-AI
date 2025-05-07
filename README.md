@@ -43,13 +43,49 @@ In its initial release, GameChangerAI will:
 
 ---
 
-## 📱 Features (Coming Soon)
+## Setup Instructions
+ 
+ ### Backend Setup
+ 
+ 1. Create a virtual environment:
+    ```
+    python -m venv .venv
+    ```
+ 
+ 2. Activate the virtual environment:
+    - Windows: `.venv\Scripts\activate`
+    - macOS/Linux: `source .venv/bin/activate`
+ 
+ 3. Install dependencies:
+    ```
+    pip install -r requirements.txt
+    ```
+ 
+ 4. Run the Flask application:
+    ```
+    python app.py
+    ```
+ 
+ ### Flutter Setup (Coming Soon)
+ 
+ Flutter frontend setup instructions will be added as the project progresses.
+ 
+ ## API Endpoints
+ 
+ - `/api/games`: Get current and upcoming games
+ - `/api/player/<player_id>`: Get player career stats
+ - `/api/predictions/<game_id>`: Get prediction for a specific game
+ - `/api/simulation`: Run custom game simulation
+ - `/api/teams`: Get list of all NBA teams
+---
 
-- Game prediction updates  
+## 📱 Features
+
+- Game prediction updates from NBA_API
 - Historical matchup analysis  
 - Player performance impact visualization  
 - Interactive simulation interface  
-
+- Experiment Feature
 ---
 
 ## 🧠 Team & Contributors

@@ -118,4 +118,14 @@ This project is licensed under the [MIT License](LICENSE).
 For suggestions, bug reports, or contributions:
 
 - 📧 **mannlesterm@gmail.com**  
+- 🔗 [GitHub](https://github.com/christinedln)
+
+- 📧 **mannlesterm@gmail.com**  
 - 🔗 [GitHub](https://github.com/MannLester)
+
+- 📧 **mannlesterm@gmail.com**  
+- 🔗 [GitHub](https://github.com/MannLester)
+
+- 📧 **mannlesterm@gmail.com**  
+- 🔗 [GitHub](https://github.com/MannLester)
+

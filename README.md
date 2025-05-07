@@ -66,9 +66,20 @@ In its initial release, GameChangerAI will:
     python app.py
     ```
  
- ### Flutter Setup (Coming Soon)
- 
- Flutter frontend setup instructions will be added as the project progresses.
+ ### Flutter Setup
+ 1. Check if Flutter is intalled
+    ```
+    flutter --version
+    ```  
+ 2. Install dependencies
+     ```
+    flutter pub get
+    ```  
+ 3. Run Flutter
+     ```
+    flutter run -d chrome
+    ```  
+ ---
  
  ## API Endpoints
  

@@ -119,13 +119,13 @@ For suggestions, bug reports, or contributions:
 
 - 📧 **deleonchristinejoyce1@gmail.co**  
 - 🔗 [GitHub](https://github.com/christinedln)
-
+---
 - 📧 **chesterlajara234@gmail.com**  
 - 🔗 [GitHub](https://github.com/Chesterlajara)
-
+---
 - 📧 **Rosalesmarclinus@gmail.com**  
 - 🔗 [GitHub](https://github.com/MarcLinus)
-
+---
 - 📧 **mannlesterm@gmail.com**  
 - 🔗 [GitHub](https://github.com/MannLester)
 

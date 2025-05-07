@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../data/player_data.dart';
 import '../data/nba_teams.dart';
 
+
 class PlayerAdjustmentsCard extends StatefulWidget {
   final String? selectedTeam1;
   final String? selectedTeam2;
@@ -11,6 +12,7 @@ class PlayerAdjustmentsCard extends StatefulWidget {
   final Map<String, double> playerImpactFactors;
   final ValueChanged<String?> onTeamForAdjustmentChanged;
   final Function(String, bool) onPlayerAdjustmentChanged;
+
 
   const PlayerAdjustmentsCard({
     super.key,
@@ -23,14 +25,17 @@ class PlayerAdjustmentsCard extends StatefulWidget {
     required this.onPlayerAdjustmentChanged,
   });
 
+
   @override
   State<PlayerAdjustmentsCard> createState() => _PlayerAdjustmentsCardState();
 }
+
 
 class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
   List<PlayerData> _players = [];
   bool _isLoading = false;
   String? _error;
+
 
   @override
   void didUpdateWidget(PlayerAdjustmentsCard oldWidget) {
@@ -42,11 +47,13 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
     }
   }
 
+
   Future<void> _loadPlayersForTeam(String teamName) async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
+
 
     try {
       // Get the team abbreviation from the team name
@@ -60,8 +67,10 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
         return;
       }
 
+
       // Load players for the team
       final players = await PlayerData.getPlayersForTeam(teamAbbreviation);
+
 
       // Initialize player adjustments for new players
       for (var player in players) {
@@ -69,6 +78,7 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
           widget.playerAdjustments[player.playerName] = true; // Default to active
         }
       }
+
 
       setState(() {
         _players = players;
@@ -83,18 +93,19 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
     }
   }
 
+
   // Get color for factor based on player impact and active status
   Color _getFactorColor(PlayerData player, bool isDarkMode) {
     // Get the impact factor - use the player's computed factor if not in the map
     double factor = widget.playerImpactFactors[player.playerName] ?? _calculatePlayerImpactFactor(player);
     bool isActive = widget.playerAdjustments[player.playerName] ?? true;
-    
+   
     // Check if player is active or inactive
     if (!isActive) {
       // Inactive player - use red shade
       return Color(0xFFEE6B6B); // Lighter red
     }
-    
+   
     // Color based on impact factor value for active players
     if (factor >= 0.15) {
       // High impact - star player
@@ -110,23 +121,25 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
       return isDarkMode ? Colors.grey[800]! : Colors.grey[200]!; // Default grey
     }
   }
-  
+ 
   // Calculate a player's impact factor based on stats if not provided by API
   double _calculatePlayerImpactFactor(PlayerData player) {
     // Use the same formula as the backend
     // Updated weights: 70% points, 10% rebounds, 20% assists
-    double rawImpact = (0.7 * player.points + 0.1 * player.rebounds + 
+    double rawImpact = (0.7 * player.points + 0.1 * player.rebounds +
                         0.2 * player.assists) / 100.0;
-  
+ 
     print('Player ${player.playerName} impact calculation: (0.7 * ${player.points} + 0.1 * ${player.rebounds} + 0.2 * ${player.assists}) / 100.0 = $rawImpact');
-  
+ 
     // Clamp between 0.01 and 0.20 as the backend does
     return double.parse((rawImpact.clamp(0.01, 0.20)).toStringAsFixed(3));
   }
 
+
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
+
 
     double getFontSize(double baseSize) {
       if (screenWidth < 600) {
@@ -138,7 +151,9 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
       }
     }
 
+
     bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
 
     return Card(
       color: isDarkMode ? Colors.grey[850] : const Color(0xFFFFFFFF),
@@ -165,7 +180,7 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
                 ),
                 if (widget.selectedTeam1 != null && widget.selectedTeam2 != null)
                   Container(
-                    width: screenWidth < 600 ? 120 : 150,
+                    width: screenWidth < 600 ? 150: 120,
                     child: DropdownButtonFormField<String>(
                       value: widget.selectedTeamForAdjustment,
                       hint: Text(
@@ -272,7 +287,7 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
                       child: Text(
                         'Name',
                         style: GoogleFonts.poppins(
-                          fontSize: getFontSize(14),
+                          fontSize: getFontSize(12),
                           fontWeight: FontWeight.bold,
                           color: isDarkMode ? Colors.white : Colors.black,
                         ),
@@ -283,7 +298,7 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
                       child: Text(
                         'Points',
                         style: GoogleFonts.poppins(
-                          fontSize: getFontSize(14),
+                          fontSize: getFontSize(10),
                           fontWeight: FontWeight.bold,
                           color: isDarkMode ? Colors.white : Colors.black,
                         ),
@@ -295,7 +310,7 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
                       child: Text(
                         'Rebounds',
                         style: GoogleFonts.poppins(
-                          fontSize: getFontSize(12),
+                          fontSize: getFontSize(10),
                           fontWeight: FontWeight.bold,
                           color: isDarkMode ? Colors.white : Colors.black,
                         ),
@@ -307,7 +322,7 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
                       child: Text(
                         'Assists',
                         style: GoogleFonts.poppins(
-                          fontSize: getFontSize(14),
+                          fontSize: getFontSize(10),
                           fontWeight: FontWeight.bold,
                           color: isDarkMode ? Colors.white : Colors.black,
                         ),
@@ -319,7 +334,7 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
                       child: Text(
                         'Factor',
                         style: GoogleFonts.poppins(
-                          fontSize: getFontSize(14),
+                          fontSize: getFontSize(10),
                           fontWeight: FontWeight.bold,
                           color: isDarkMode ? Colors.white : Colors.black,
                         ),
@@ -331,7 +346,7 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
                       child: Text(
                         'Active',
                         style: GoogleFonts.poppins(
-                          fontSize: getFontSize(14),
+                          fontSize: getFontSize(10),
                           fontWeight: FontWeight.bold,
                           color: isDarkMode ? Colors.white : Colors.black,
                         ),
@@ -431,7 +446,7 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
                           child: Switch(
                             value: widget.playerAdjustments[player.playerName] ?? true,
                             onChanged: (value) => widget.onPlayerAdjustmentChanged(player.playerName, value),
-                            activeColor: const Color(0xFF000173),
+                            activeColor: const Color(0xFF013f8d),
                             thumbColor: MaterialStateProperty.all(Colors.white),
                             inactiveTrackColor: const Color(0xFFb2b2b2),
                           ),
@@ -449,3 +464,4 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
     );
   }
 }
+

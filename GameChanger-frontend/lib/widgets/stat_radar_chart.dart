@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'dart:math' as math;
+
 
 class StatRadarChart extends StatelessWidget {
   final Map<String, dynamic> stats;
@@ -7,7 +9,7 @@ class StatRadarChart extends StatelessWidget {
   final Color chartColor;
   final List<String> statLabels;
   final List<String> statKeys;
-  
+ 
   const StatRadarChart({
     Key? key,
     required this.stats,
@@ -16,6 +18,7 @@ class StatRadarChart extends StatelessWidget {
     required this.statLabels,
     required this.statKeys,
   }) : super(key: key);
+
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +62,7 @@ class StatRadarChart extends StatelessWidget {
               children: List.generate(
                 math.min(statLabels.length, statKeys.length),
                 (index) => _buildLegendItem(
-                  statLabels[index], 
+                  statLabels[index],
                   _getStatValue(statKeys[index]),
                   chartColor,
                 ),
@@ -71,6 +74,7 @@ class StatRadarChart extends StatelessWidget {
     );
   }
 
+
   Widget _buildRadarChart() {
     return CustomPaint(
       size: const Size(300, 300),
@@ -81,19 +85,19 @@ class StatRadarChart extends StatelessWidget {
       ),
     );
   }
-  
+ 
   List<double> _getNormalizedValues() {
     final List<double> normalizedValues = [];
     final bool isDefensive = title.toLowerCase().contains('defensive');
-    
+   
     for (int i = 0; i < statKeys.length; i++) {
       final key = statKeys[i];
       final value = _getStatValue(key);
       final rating = _getRating(key, value);
-      
+     
       // Use rating to determine the normalized value
       double normalizedValue = 0.0;
-      
+     
       switch (rating) {
         case 'S': normalizedValue = 0.9; break;
         case 'A': normalizedValue = 0.7; break;
@@ -102,13 +106,13 @@ class StatRadarChart extends StatelessWidget {
         case 'D': normalizedValue = 0.15; break;
         default: normalizedValue = 0.15;
       }
-      
+     
       normalizedValues.add(normalizedValue);
     }
-    
+   
     return normalizedValues;
   }
-  
+ 
   Widget _buildRatingTable() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -135,7 +139,7 @@ class StatRadarChart extends StatelessWidget {
                 final value = _getStatValue(key);
                 final rating = _getRating(key, value);
                 final ratingColor = _getRatingColor(rating);
-                
+               
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6.0),
                   child: Row(
@@ -178,17 +182,17 @@ class StatRadarChart extends StatelessWidget {
       ),
     );
   }
-  
+ 
   Widget _buildLegendItem(String label, double value, Color color) {
     String displayValue;
-    
+   
     // Format the value based on the type of stat
     if (label.contains('%')) {
       displayValue = '${(value * 100).toStringAsFixed(1)}%';
     } else {
       displayValue = value.toStringAsFixed(1);
     }
-    
+   
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -201,14 +205,16 @@ class StatRadarChart extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        Text(
-          '$label: $displayValue',
-          style: const TextStyle(fontSize: 12),
-        ),
+       Text(
+  '$label: $displayValue',
+  style: GoogleFonts.poppins(
+    fontSize: 12,
+  ),
+),
       ],
     );
   }
-  
+ 
   double _getStatValue(String key) {
     if (stats.containsKey(key)) {
       final value = stats[key];
@@ -218,7 +224,7 @@ class StatRadarChart extends StatelessWidget {
     }
     return 0.0;
   }
-  
+ 
   String _getRating(String key, double value) {
     if (key.contains('pct')) {
       // Percentages
@@ -298,7 +304,7 @@ class StatRadarChart extends StatelessWidget {
       return 'D';
     }
   }
-  
+ 
   Color _getRatingColor(String rating) {
     switch (rating) {
       case 'S': return Colors.purple.shade700;
@@ -311,76 +317,77 @@ class StatRadarChart extends StatelessWidget {
   }
 }
 
+
 class HexagonChartPainter extends CustomPainter {
   final List<double> stats;
   final List<String> labels;
   final Color color;
-  
+ 
   HexagonChartPainter({
     required this.stats,
     required this.labels,
     required this.color,
   });
-  
+ 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2 - 30;
-    
+   
     // Draw axes
     _drawAxes(canvas, center, radius);
-    
+   
     // Draw labels
     _drawLabels(canvas, center, radius);
-    
+   
     // Draw data polygon
     _drawDataPolygon(canvas, center, radius);
   }
-  
+ 
   void _drawAxes(Canvas canvas, Offset center, double radius) {
     final paint = Paint()
       ..color = Colors.grey.shade300
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
-    
+   
     // Draw concentric hexagons for scale
     for (int i = 1; i <= 4; i++) {
       final scaledRadius = radius * i / 4;
       final path = Path();
-      
+     
       for (int j = 0; j < math.min(stats.length, 6); j++) {
         final angle = j * 2 * math.pi / math.min(stats.length, 6);
         final x = center.dx + scaledRadius * math.cos(angle - math.pi / 2);
         final y = center.dy + scaledRadius * math.sin(angle - math.pi / 2);
-        
+       
         if (j == 0) {
           path.moveTo(x, y);
         } else {
           path.lineTo(x, y);
         }
       }
-      
+     
       path.close();
       canvas.drawPath(path, paint);
     }
-    
+   
     // Draw axes lines
     for (int i = 0; i < math.min(stats.length, 6); i++) {
       final angle = i * 2 * math.pi / math.min(stats.length, 6);
       final x = center.dx + radius * math.cos(angle - math.pi / 2);
       final y = center.dy + radius * math.sin(angle - math.pi / 2);
-      
+     
       canvas.drawLine(center, Offset(x, y), paint);
     }
   }
-  
+ 
   void _drawLabels(Canvas canvas, Offset center, double radius) {
     for (int i = 0; i < math.min(labels.length, 6); i++) {
       final angle = i * 2 * math.pi / math.min(labels.length, 6);
       final labelRadius = radius + 20;
       final x = center.dx + labelRadius * math.cos(angle - math.pi / 2);
       final y = center.dy + labelRadius * math.sin(angle - math.pi / 2);
-      
+     
       final textPainter = TextPainter(
         text: TextSpan(
           text: labels[i],
@@ -388,51 +395,54 @@ class HexagonChartPainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
       );
-      
+     
       textPainter.layout();
       textPainter.paint(
-        canvas, 
+        canvas,
         Offset(x - textPainter.width / 2, y - textPainter.height / 2),
       );
     }
   }
-  
+ 
   void _drawDataPolygon(Canvas canvas, Offset center, double radius) {
     if (stats.isEmpty) return;
-    
+   
     final fillPaint = Paint()
       ..color = color.withOpacity(0.2)
       ..style = PaintingStyle.fill;
-    
+   
     final strokePaint = Paint()
       ..color = color
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
-    
+   
     final path = Path();
-    
+   
     for (int i = 0; i < math.min(stats.length, 6); i++) {
       final angle = i * 2 * math.pi / math.min(stats.length, 6);
       final value = stats[i];
       final scaledRadius = radius * value;
       final x = center.dx + scaledRadius * math.cos(angle - math.pi / 2);
       final y = center.dy + scaledRadius * math.sin(angle - math.pi / 2);
-      
+     
       if (i == 0) {
         path.moveTo(x, y);
       } else {
         path.lineTo(x, y);
       }
-      
+     
       // Draw data points
       canvas.drawCircle(Offset(x, y), 4, Paint()..color = color);
     }
-    
+   
     path.close();
     canvas.drawPath(path, fillPaint);
     canvas.drawPath(path, strokePaint);
   }
-  
+ 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
+
+
+

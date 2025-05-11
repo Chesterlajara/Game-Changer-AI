@@ -188,6 +188,7 @@ class _ExperimentPageState extends State<ExperimentPage> {
               themeProvider.toggleTheme(!themeProvider.isDarkMode);
             },
           ),
+           const SizedBox(width: 10),
         ],
       ),
       body: SafeArea(

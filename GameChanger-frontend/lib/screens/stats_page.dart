@@ -178,6 +178,7 @@ class _StatsPageState extends State<StatsPage> with SingleTickerProviderStateMix
           themeProvider.toggleTheme(!themeProvider.isDarkMode);
         },
       ),
+      const SizedBox(width: 10),
     ],
   ),
   body: Column(

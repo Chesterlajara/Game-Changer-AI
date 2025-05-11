@@ -270,50 +270,48 @@ class _GamePageState extends State<GamePage> {
     final Color tabBarBorderColor = isDark ? Colors.grey[600]!.withOpacity(0.5) : const Color(0xFF374151).withOpacity(0.30);
 
 
-    return Scaffold(
-       backgroundColor: themeProvider.isDarkMode ? Colors.black : const Color(0xFFF4F4F4),
-      appBar: AppBar(
-        backgroundColor: themeProvider.isDarkMode ? Colors.black : const Color(0xFFF4F4F4),
-        elevation: 0, 
-        title: Text(
-          'Game Changer AI',
-          style: GoogleFonts.poppins(
-            color: const Color(0xFF365772), 
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        actions: [
-          // Calendar Icon
-          IconButton(
-            icon: SvgPicture.asset(
-              'assets/icons/calendar.svg',
-              width: 20,
-              height: 19,
-            
-              colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-            ),
-            onPressed: () => _selectDate(context),
-            tooltip: 'Open Calendar',
-          ),
-          // Theme Toggle Icon
-          IconButton(
-            // Use themeProvider state to determine the icon
-            icon: Icon(
-              themeProvider.isDarkMode ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-              color: iconColor,
-            ),
-            onPressed: () {
-              // Call the provider method to toggle the theme
-              final bool isCurrentlyDark = themeProvider.isDarkMode;
-              themeProvider.toggleTheme(!isCurrentlyDark);
-            },
-            // Update tooltip based on provider state
-            tooltip: themeProvider.isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme',
-          ),
-          const SizedBox(width: 10),
-        ],
+   return Scaffold(
+  backgroundColor: themeProvider.isDarkMode ? Colors.black : const Color(0xFFF4F4F4),
+  appBar: AppBar(
+    backgroundColor: themeProvider.isDarkMode ? Colors.black : const Color(0xFFF4F4F4),
+    toolbarHeight: 90, // Set your desired height here
+    title: Container(
+      child: Image.asset(
+        'assets/logos/logo.png',
+        height: 150, // adjust height as needed
       ),
+    ),
+    centerTitle: false,
+    actions: [
+      // Calendar Icon
+      IconButton(
+        icon: SvgPicture.asset(
+          'assets/icons/calendar.svg',
+          width: 20,
+          height: 19,
+          colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+        ),
+        onPressed: () => _selectDate(context),
+        tooltip: 'Open Calendar',
+      ),
+      // Theme Toggle Icon
+      IconButton(
+        // Use themeProvider state to determine the icon
+        icon: Icon(
+          themeProvider.isDarkMode ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+          color: iconColor,
+        ),
+        onPressed: () {
+          // Call the provider method to toggle the theme
+          final bool isCurrentlyDark = themeProvider.isDarkMode;
+          themeProvider.toggleTheme(!isCurrentlyDark);
+        },
+        // Update tooltip based on provider state
+        tooltip: themeProvider.isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme',
+      ),
+      const SizedBox(width: 10),
+    ],
+  ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0), 
         child: Column(

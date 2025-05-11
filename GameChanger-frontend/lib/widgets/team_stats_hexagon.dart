@@ -44,84 +44,165 @@ class TeamStatsHexagon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isSmallScreen = screenWidth < 600; // Threshold for mobile layout
+    final bool isVerySmallScreen = screenWidth < 360; // Extra small screens like older iPhones
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Team Statistics Comparison',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: isDarkMode ? Colors.white : Colors.black,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Text(
+            'Team Statistics Comparison',
+            style: GoogleFonts.poppins(
+              fontSize: isSmallScreen ? 14 : 16,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.white : Colors.black,
+            ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         
         // Legend
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildLegendItem(team1Name, team1Color, isDarkMode),
+            _buildLegendItem(team1Name, team1Color, isDarkMode, context),
             const SizedBox(width: 24),
-            _buildLegendItem(team2Name, team2Color, isDarkMode),
+            _buildLegendItem(team2Name, team2Color, isDarkMode, context),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         
-        // Stats and Hexagon chart layout
-        Row(
-          children: [
-            // Team 1 Stats (Left Side)
-            Expanded(
-              flex: 1,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: _buildStatLabels(
-                  team1RawStats,
-                  team1Color,
-                  isDarkMode,
-                  true, // left side
+        // Stats and Hexagon chart layout - responsive
+        if (isSmallScreen)
+          // Mobile layout - Vertical arrangement
+          Column(
+            children: [
+              // Hexagon chart (Top) - Adaptive sizing with no fixed height
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Calculate an appropriate size based on screen width
+                    // Use the smaller value between 65% of screen width or 200
+                    final chartSize = min(screenWidth * 0.65, 200.0);
+                    
+                    return SizedBox(
+                      width: chartSize,
+                      height: chartSize,
+                      child: CustomPaint(
+                        painter: HexagonPainter(
+                          team1Stats: team1Stats,
+                          team2Stats: team2Stats,
+                          team1Color: team1Color.withOpacity(0.7),
+                          team2Color: team2Color.withOpacity(0.7),
+                          labelColor: isDarkMode ? Colors.white : Colors.black87,
+                          gridColor: isDarkMode ? Colors.white30 : Colors.black12,
+                        ),
+                      ),
+                    );
+                  }
                 ),
               ),
-            ),
-            
-            // Hexagon chart (Center)
-            Expanded(
-              flex: 3,
-              child: SizedBox(
-                height: 320,
-                child: Center(
-                  child: CustomPaint(
-                    size: const Size(250, 250),
-                    painter: HexagonPainter(
-                      team1Stats: team1Stats,
-                      team2Stats: team2Stats,
-                      team1Color: team1Color.withOpacity(0.7),
-                      team2Color: team2Color.withOpacity(0.7),
-                      labelColor: isDarkMode ? Colors.white : Colors.black87,
-                      gridColor: isDarkMode ? Colors.white30 : Colors.black12,
+              
+              // Stats side by side
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0), // Further reduce horizontal padding for mobile
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center, // Center the stats columns
+                  children: [
+                    // Team 1 Stats
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: _buildStatLabels(
+                          team1RawStats,
+                          team1Color,
+                          isDarkMode,
+                          true,
+                          context,
+                          isVerySmallScreen // Pass flag for very small screens
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2), // Smaller space between columns
+                    // Team 2 Stats
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: _buildStatLabels(
+                          team2RawStats,
+                          team2Color,
+                          isDarkMode,
+                          false,
+                          context,
+                          isVerySmallScreen, // Pass flag for very small screens
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          )
+        else
+          // Desktop layout - Original side-by-side arrangement
+          Row(
+            children: [
+              // Team 1 Stats (Left Side)
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: _buildStatLabels(
+                    team1RawStats,
+                    team1Color,
+                    isDarkMode,
+                    true, // left side
+                    context,
+                  ),
+                ),
+              ),
+              
+              // Hexagon chart (Center)
+              Expanded(
+                flex: 3,
+                child: SizedBox(
+                  height: 320,
+                  child: Center(
+                    child: CustomPaint(
+                      size: const Size(250, 250),
+                      painter: HexagonPainter(
+                        team1Stats: team1Stats,
+                        team2Stats: team2Stats,
+                        team1Color: team1Color.withOpacity(0.7),
+                        team2Color: team2Color.withOpacity(0.7),
+                        labelColor: isDarkMode ? Colors.white : Colors.black87,
+                        gridColor: isDarkMode ? Colors.white30 : Colors.black12,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            
-            // Team 2 Stats (Right Side)
-            Expanded(
-              flex: 1,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: _buildStatLabels(
-                  team2RawStats,
-                  team2Color,
-                  isDarkMode,
-                  false, // right side
+              
+              // Team 2 Stats (Right Side)
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _buildStatLabels(
+                    team2RawStats,
+                    team2Color,
+                    isDarkMode,
+                    false, // right side
+                    context,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         
         // Insights
         Padding(
@@ -158,23 +239,32 @@ class TeamStatsHexagon extends StatelessWidget {
     );
   }
   
-  Widget _buildLegendItem(String teamName, Color color, bool isDarkMode) {
+  Widget _buildLegendItem(String teamName, Color color, bool isDarkMode, BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isSmallScreen = screenWidth < 600;
+    
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 16,
-          height: 16,
+          width: isSmallScreen ? 8 : 12,
+          height: isSmallScreen ? 8 : 12,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.7),
+            color: color,
             shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: 8),
-        Text(
-          teamName,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: isDarkMode ? Colors.white : Colors.black,
+        SizedBox(width: isSmallScreen ? 3 : 6),
+        Flexible(
+          child: Text(
+            teamName,
+            style: GoogleFonts.poppins(
+              fontSize: isSmallScreen ? 10 : 14,
+              fontWeight: FontWeight.w500,
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
         ),
       ],
@@ -182,77 +272,109 @@ class TeamStatsHexagon extends StatelessWidget {
   }
   
   // Helper method to build stat labels for each side
-  List<Widget> _buildStatLabels(Map<String, double> stats, Color color, bool isDarkMode, bool isLeftSide) {
-    const statDisplay = ['PPG', '3PT', 'REB', 'AST', 'STL', 'BLK'];
+  List<Widget> _buildStatLabels(Map<String, dynamic> stats, Color color, bool isDarkMode, bool isLeftSide, BuildContext context, [bool isVerySmallScreen = false]) {
+    final statNames = ['PPG', 'FG3_PCT', 'REB', 'AST', 'STL', 'BLK'];
+    final statLabels = ['Points', '3PT %', 'Rebounds', 'Assists', 'Steals', 'Blocks'];
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
     
-    // Get the actual raw stats in the correct display order
-    List<MapEntry<String, double>> orderedStats = [];
-    for (final stat in statDisplay) {
-      if (stats.containsKey(stat)) {
-        orderedStats.add(MapEntry(stat, stats[stat]!));
+    final items = <Widget>[];
+    
+    for (int i = 0; i < statNames.length; i++) {
+      final statName = statNames[i];
+      final statLabel = statLabels[i];
+      final statValue = stats[statName] ?? 0.0;
+      final formattedValue = _formatStatValue(statName, statValue);
+      
+      // For small screens, we always center align the text
+      // and use a more compact layout with stat name on top of value
+      if (isSmallScreen) {
+        // Even more compact layout for small screens
+        final fontSize = isVerySmallScreen ? 8.0 : 9.0;
+        final valueFontSize = isVerySmallScreen ? 9.0 : 10.0;
+        
+        final column = Padding(
+          padding: EdgeInsets.symmetric(vertical: isVerySmallScreen ? 2.0 : 3.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                statName,
+                style: GoogleFonts.poppins(
+                  fontSize: fontSize,
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                ),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: isVerySmallScreen ? 1 : 2),
+              Text(
+                formattedValue,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: valueFontSize,
+                  color: color,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+        items.add(column);
+      } else {
+        // Original layout for larger screens
+        final row = Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 4.0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: isLeftSide 
+                ? MainAxisAlignment.end 
+                : MainAxisAlignment.start,
+            children: [
+              if (isLeftSide) ...[              
+                Text(
+                  formattedValue,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  statName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                  ),
+                ),
+              ] else ...[              
+                Text(
+                  statName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  formattedValue,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: color,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+        items.add(row);
       }
     }
     
-    // Build the stat display labels
-    return orderedStats.map((entry) {
-      final String statName = entry.key;
-      final double value = entry.value;
-      final String displayValue = _formatStatValue(statName, value);
-      
-      if (isLeftSide) {
-        // Left side alignment
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                displayValue,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                statName,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: isDarkMode ? Colors.white70 : Colors.black54,
-                ),
-              ),
-            ],
-          ),
-        );
-      } else {
-        // Right side alignment
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Text(
-                statName,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: isDarkMode ? Colors.white70 : Colors.black54,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                displayValue,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-    }).toList();
+    return items;
   }
   
   // Helper to format the stat value appropriately
@@ -366,7 +488,7 @@ class HexagonPainter extends CustomPainter {
     final paint = Paint()
       ..color = gridColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
+      ..strokeWidth = 0.5; // Even thinner lines for cleaner appearance on small screens
     
     // Draw concentric hexagons (5 levels)
     for (int i = 1; i <= 5; i++) {
@@ -407,17 +529,17 @@ class HexagonPainter extends CustomPainter {
         paint,
       );
       
-      // Draw label
+      // Draw label - More compact positioning for small screens
       final labelOffset = Offset(
-        center.dx + (radius + 20) * cos(angle) - 15,
-        center.dy + (radius + 20) * sin(angle) - 10,
+        center.dx + (radius + 15) * cos(angle) - 10,
+        center.dy + (radius + 15) * sin(angle) - 8,
       );
       
       textPainter.text = TextSpan(
         text: statNames[i],
         style: TextStyle(
           color: labelColor,
-          fontSize: 12,
+          fontSize: 8, // Even smaller font size for axis labels
           fontWeight: FontWeight.bold,
         ),
       );

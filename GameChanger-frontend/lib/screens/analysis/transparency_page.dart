@@ -1320,6 +1320,10 @@ class _TransparencyPageState extends State<TransparencyPage> {
       return const Center(child: CircularProgressIndicator());
     }
     
+    // Check screen size for responsive layout
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+    
     List<MapEntry<String, dynamic>> sortedPlayers = [];
     
     // Parse player impact data if available
@@ -1346,39 +1350,74 @@ class _TransparencyPageState extends State<TransparencyPage> {
     
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(isSmallScreen ? 12.0 : 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Team selection toggle
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Key Player Impact',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDarkMode ? Colors.white : Colors.black,
+            // Team selection toggle - responsive layout
+            if (isSmallScreen)
+              // Mobile layout - Vertical stack
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Key Player Impact',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDarkMode ? Colors.white : Colors.black,
+                    ),
                   ),
-                ),
-                // Team selection segmented control
-                Container(
-                  decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                    borderRadius: BorderRadius.circular(25),
+                  const SizedBox(height: 12),
+                  // Team selection segmented control - full width on mobile
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildTeamToggleButton('Team1', widget.game.team1Name),
+                        _buildTeamToggleButton('All', 'All'),
+                        _buildTeamToggleButton('Team2', widget.game.team2Name),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildTeamToggleButton('Team1', widget.game.team1Name),
-                      _buildTeamToggleButton('All', 'All'),
-                      _buildTeamToggleButton('Team2', widget.game.team2Name),
-                    ],
+                ],
+              )
+            else
+              // Desktop layout - Horizontal arrangement
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Key Player Impact',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDarkMode ? Colors.white : Colors.black,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                  // Team selection segmented control
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildTeamToggleButton('Team1', widget.game.team1Name),
+                        _buildTeamToggleButton('All', 'All'),
+                        _buildTeamToggleButton('Team2', widget.game.team2Name),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             const SizedBox(height: 16),
             
             if (sortedPlayers.isEmpty)
@@ -1395,29 +1434,40 @@ class _TransparencyPageState extends State<TransparencyPage> {
                 child: Card(
                   color: isDarkMode ? Colors.grey[800] : Colors.white,
                   child: Padding(
-                    padding: const EdgeInsets.all(12.0),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSmallScreen ? 8.0 : 12.0,
+                      vertical: isSmallScreen ? 8.0 : 12.0
+                    ),
                     child: Row(
                       children: [
                         Icon(
                           Icons.person,
-                          size: 24,
+                          size: isSmallScreen ? 20 : 24,
                           color: isDarkMode ? Colors.blue[300] : Colors.blue[700],
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
+                        // Player name with overflow handling
                         Expanded(
                           child: Text(
                             entry.key,
                             style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
+                              fontSize: isSmallScreen ? 13 : 14,
+                              fontWeight: FontWeight.w500,
                               color: isDarkMode ? Colors.white : Colors.black,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        // Impact percentage with responsive sizing
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 6 : 8, 
+                            vertical: isSmallScreen ? 3 : 4
+                          ),
                           decoration: BoxDecoration(
-                            color: _getImpactColor(entry.value is double ? entry.value : 0.1),
+                            color: entry.value is double && (entry.value as double) > 0
+                                ? Colors.green[100]! 
+                                : Colors.red[100]!,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -1488,6 +1538,10 @@ class _TransparencyPageState extends State<TransparencyPage> {
     
     final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
     
+    // Check screen size for responsive layout
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+    
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1505,11 +1559,17 @@ class _TransparencyPageState extends State<TransparencyPage> {
             const SizedBox(height: 16),
             
             if (matchups.isEmpty)
-              Text(
-                'No historical matchup data available',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: isDarkMode ? Colors.white70 : Colors.black87,
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 12.0 : 16.0),
+                child: Center(
+                  child: Text(
+                    'No historical matchup data available between these teams.',
+                    style: GoogleFonts.poppins(
+                      fontSize: isSmallScreen ? 13 : 14,
+                      color: isDarkMode ? Colors.white70 : Colors.grey[700],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               )
             else
@@ -1603,31 +1663,34 @@ class _GameSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+    final isVerySmallScreen = screenWidth < 360;
     
     // Card theme styling
     final cardBgColor = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
     final cardBorderColor = isDarkMode ? Colors.grey[800]! : Colors.grey[300]!;
-    final double logoSize = 60.0;
+    final double logoSize = isVerySmallScreen ? 40.0 : (isSmallScreen ? 50.0 : 60.0);
     
-    // Text styling
+    // Text styling - responsive font sizes based on screen size
     final teamTextStyle = GoogleFonts.poppins(
-      fontSize: 16,
+      fontSize: isVerySmallScreen ? 12 : (isSmallScreen ? 14 : 16),
       fontWeight: FontWeight.bold,
       color: isDarkMode ? Colors.white : Colors.black,
     );
     
     final labelTextStyle = GoogleFonts.poppins(
-      fontSize: 12,
+      fontSize: isVerySmallScreen ? 9 : (isSmallScreen ? 10 : 12),
       color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
     );
     
     final winProbLabelStyle = GoogleFonts.poppins(
-      fontSize: 12,
+      fontSize: isVerySmallScreen ? 9 : (isSmallScreen ? 10 : 12),
       color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
     );
     
     final winProbValueStyle = GoogleFonts.poppins(
-      fontSize: 16,
+      fontSize: isVerySmallScreen ? 12 : (isSmallScreen ? 14 : 16),
       fontWeight: FontWeight.bold,
       color: const Color(0xFF365772),
     );
@@ -1654,76 +1717,124 @@ class _GameSummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12.0),
         border: Border.all(color: cardBorderColor, width: 1.0),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
+      padding: EdgeInsets.symmetric(
+        horizontal: isVerySmallScreen ? 6.0 : (isSmallScreen ? 8.0 : 12.0), 
+        vertical: isSmallScreen ? 12.0 : 16.0
+      ),
       child: Column(
          crossAxisAlignment: CrossAxisAlignment.start, // Align details left
          children: [
-           IntrinsicHeight( // To help center probability vertically
-             child: Row(
-               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-               crossAxisAlignment: CrossAxisAlignment.center, // Vertically align items in the row
-               children: [
-                 // Team 1 Column
-                 Column(
-                   mainAxisSize: MainAxisSize.min,
-                   children: [
-                     logoBuilder(game.team1LogoPath, logoSize),
-                     const SizedBox(height: 4),
-                     Text(game.team1Name, style: teamTextStyle),
-                     Text('(Home)', style: labelTextStyle),
-                   ],
-                 ),
-                 // Win Probability Column
-                 Padding(
-                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                   child: Column(
-                     mainAxisAlignment: MainAxisAlignment.center, // Center vertically
-                     children: [
-                       Text('Win Probability', style: winProbLabelStyle),
-                       const SizedBox(height: 4),
-                       Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: '${(game.team1WinProbability * 100).toStringAsFixed(0)}%',
-                              style: winProbValueStyle.copyWith(
-                                fontSize: game.team1WinProbability >= game.team2WinProbability ? 29: 25,
-                              ),
-                            ),
-                            const TextSpan(
-                              text: ' - ',
-                              style: TextStyle(fontSize: 20),
-                            ),
-                            TextSpan(
-                              text: '${(game.team2WinProbability * 100).toStringAsFixed(0)}%',
-                              style: winProbValueStyle.copyWith(
-                                fontSize: game.team2WinProbability > game.team1WinProbability ? 29: 25,
-                              ),
-                            ),
-                          ],
+           // Using a normal Row instead of IntrinsicHeight to avoid layout issues on small screens
+             // and wrapping with SingleChildScrollView to prevent overflow
+             LayoutBuilder(builder: (context, constraints) {
+               // Using the available width to create a responsive layout
+               final availableWidth = constraints.maxWidth;
+               final teamColumnWidth = availableWidth * (isVerySmallScreen ? 0.25 : 0.28);
+               final probColumnWidth = availableWidth * (isVerySmallScreen ? 0.5 : 0.42);
+               
+               return Row(
+                 mainAxisAlignment: MainAxisAlignment.center,
+                 crossAxisAlignment: CrossAxisAlignment.center,
+                 children: [
+                  // Team 1 Column - fixed width to prevent overflow
+                  SizedBox(
+                    width: teamColumnWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        logoBuilder(game.team1LogoPath, logoSize),
+                        SizedBox(height: isVerySmallScreen ? 2 : 4),
+                        Text(
+                          game.team1Name, 
+                          style: teamTextStyle,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                        Text(
+                          '(Home)', 
+                          style: labelTextStyle,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Win Probability Column - fixed width to ensure proper layout
+                  SizedBox(
+                    width: probColumnWidth,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: isVerySmallScreen ? 2.0 : 4.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Win Probability', 
+                            style: winProbLabelStyle,
+                            textAlign: TextAlign.center,
+                          ),
+                          SizedBox(height: isVerySmallScreen ? 2 : 4),
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '${(game.team1WinProbability * 100).toStringAsFixed(0)}%',
+                                  style: winProbValueStyle.copyWith(
+                                    fontSize: isVerySmallScreen 
+                                        ? 14
+                                        : (isSmallScreen 
+                                            ? (game.team1WinProbability >= game.team2WinProbability ? 20 : 16)
+                                            : (game.team1WinProbability >= game.team2WinProbability ? 29 : 25)),
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: ' - ',
+                                  style: TextStyle(fontSize: isVerySmallScreen ? 12 : (isSmallScreen ? 16 : 20)),
+                                ),
+                                TextSpan(
+                                  text: '${(game.team2WinProbability * 100).toStringAsFixed(0)}%',
+                                  style: winProbValueStyle.copyWith(
+                                    fontSize: isVerySmallScreen 
+                                        ? 14
+                                        : (isSmallScreen 
+                                            ? (game.team2WinProbability > game.team1WinProbability ? 20 : 16)
+                                            : (game.team2WinProbability > game.team1WinProbability ? 29 : 25)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
-
-                     ],
-                   ),
-                 ),
-                 // Team 2 Column
-                 Column(
-                   mainAxisSize: MainAxisSize.min,
-                   children: [
-                     logoBuilder(game.team2LogoPath, logoSize),
-                     const SizedBox(height: 4),
-                     Text(game.team2Name, style: teamTextStyle),
-                     Text('(Away)', style: labelTextStyle),
-                   ],
-                 ),
-               ],
-             ),
-           ),
+                    ),
+                  ),
+                  // Team 2 Column - fixed width to prevent overflow
+                  SizedBox(
+                    width: teamColumnWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        logoBuilder(game.team2LogoPath, logoSize),
+                        SizedBox(height: isVerySmallScreen ? 2 : 4),
+                        Text(
+                          game.team2Name, 
+                          style: teamTextStyle,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          '(Away)', 
+                          style: labelTextStyle,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }),
          ],
       ),
     );
   }
 }
-
 

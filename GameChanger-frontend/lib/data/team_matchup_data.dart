@@ -245,35 +245,135 @@ class TeamMatchupData {
   
   // Generate dummy matchup data if no real data is available
   static List<MatchupData> _generateDummyMatchups(String team1Name, String team2Name, int count) {
-    print('Generating dummy matchups for $team1Name vs $team2Name');
+    print('Generating realistic dummy matchups for $team1Name vs $team2Name');
     final List<MatchupData> dummies = [];
     
-    // Generate dates in the past
+    // Generate dates in the past with realistic NBA season spacing
     final now = DateTime.now();
+    final random = DateTime.now().millisecondsSinceEpoch;
+    
+    // Map of team names to their relative strength (higher = stronger team)
+    // This helps generate more realistic scores based on team strength
+    final teamStrengths = {
+      // Top-tier teams
+      'Celtics': 10,
+      'Boston': 10,
+      'Nuggets': 9,
+      'Denver': 9,
+      'Bucks': 9,
+      'Milwaukee': 9,
+      'Lakers': 8,
+      'Los Angeles': 8,
+      'Warriors': 8,
+      'Golden State': 8,
+      'Mavericks': 8,
+      'Dallas': 8,
+      'Suns': 8,
+      'Phoenix': 8,
+      
+      // Mid-tier teams
+      'Knicks': 7,
+      'New York': 7,
+      'Heat': 7,
+      'Miami': 7,
+      'Sixers': 7,
+      '76ers': 7,
+      'Philadelphia': 7,
+      'Clippers': 6,
+      'Thunder': 6,
+      'Oklahoma City': 6,
+      'Cavaliers': 6,
+      'Cleveland': 6,
+      'Grizzlies': 6,
+      'Memphis': 6,
+      
+      // Lower-tier teams
+      'Hornets': 4,
+      'Charlotte': 4,
+      'Pistons': 3,
+      'Detroit': 3,
+      'Wizards': 3,
+      'Washington': 3,
+    };
+    
+    // Default strength if team not in the map
+    final team1Strength = _getTeamStrength(team1Name, teamStrengths);
+    final team2Strength = _getTeamStrength(team2Name, teamStrengths);
     
     for (int i = 0; i < count; i++) {
-      final daysAgo = 30 * (i + 1); // One month apart
-      final matchDate = now.subtract(Duration(days: daysAgo));
+      // Generate dates during NBA season (Oct-Jun, avoiding Jul-Sep)
+      int month = ((random + i * 73) % 9) + 1; // 1-9 → Jan-Sep
+      if (month > 6) month += 3; // 7-9 → 10-12 (Oct-Dec)
+      final int year = now.year - (i ~/ 9); // Change year every 9 months or so
+      
+      // Ensure day is valid for the month
+      final int maxDay = (month == 2) ? 28 : ([4, 6, 9, 11].contains(month) ? 30 : 31);
+      final int day = ((random + i * 41) % maxDay) + 1;
+      
+      final matchDate = DateTime(year, month, day);
       final dateString = DateFormat('MMM d, yyyy').format(matchDate);
       
-      // Generate plausible scores
-      final baseScore1 = 95 + (now.microsecond % 25);
-      final baseScore2 = 95 + ((now.microsecond + i * 17) % 25);
-      
-      // Alternate home and away
+      // Generate realistic NBA scores (typically 90-130 range)
       final isTeam1Home = i % 2 == 0;
+      final homeAdvantage = 4; // Home court advantage in points
       
+      // Calculate base scores using strengths and randomness
+      final team1Modifier = team1Strength + (isTeam1Home ? homeAdvantage : 0);
+      final team2Modifier = team2Strength + (isTeam1Home ? 0 : homeAdvantage);
+      
+      // Base score between 100-115 with added randomness
+      final baseTeam1Score = 100 + (team1Modifier * 1.5).round() + ((random + i * 31) % 8);
+      final baseTeam2Score = 100 + (team2Modifier * 1.5).round() + ((random + i * 47) % 8);
+      
+      // Add game-specific variation
+      final team1HotCold = ((random + i * 59) % 21) - 10; // -10 to +10 points
+      final team2HotCold = ((random + i * 67) % 21) - 10; // -10 to +10 points
+      
+      // Final scores
+      final team1Score = baseTeam1Score + team1HotCold;
+      final team2Score = baseTeam2Score + team2HotCold;
+      
+      // Create matchup with the calculated scores
       dummies.add(MatchupData(
         date: dateString,
         team1: isTeam1Home ? team1Name : team2Name,
         team2: isTeam1Home ? team2Name : team1Name,
-        score1: isTeam1Home ? baseScore1 : baseScore2,
-        score2: isTeam1Home ? baseScore2 : baseScore1,
-        gameId: 'dummy-${now.year - (i ~/ 12)}-${1000 + i}',
+        score1: isTeam1Home ? team1Score : team2Score,
+        score2: isTeam1Home ? team2Score : team1Score,
+        gameId: 'dummy-$year-${1000 + i}',
         location: isTeam1Home ? 'Home' : 'Away',
       ));
     }
     
+    // Sort by date (most recent first)
+    dummies.sort((a, b) => _parseDate(b.date).compareTo(_parseDate(a.date)));
     return dummies;
+  }
+  
+  // Helper method to parse date strings for sorting
+  static DateTime _parseDate(String dateString) {
+    try {
+      return DateFormat('MMM d, yyyy').parse(dateString);
+    } catch (e) {
+      return DateTime(2000); // Fallback date
+    }
+  }
+  
+  // Helper to get team strength from the map
+  static int _getTeamStrength(String teamName, Map<String, int> teamStrengths) {
+    // Try to match the full team name first
+    if (teamStrengths.containsKey(teamName)) {
+      return teamStrengths[teamName]!;
+    }
+    
+    // Try to match parts of the team name
+    for (var entry in teamStrengths.entries) {
+      if (teamName.contains(entry.key) || entry.key.contains(teamName)) {
+        return entry.value;
+      }
+    }
+    
+    // Default strength if no match
+    return 5; // Middle tier
   }
 }

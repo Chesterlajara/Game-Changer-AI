@@ -62,10 +62,14 @@ class GameCard extends StatelessWidget {
 
 
 
+    // Get screen width for responsive sizing
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360; // Breakpoint for extra small screens
+  
     return Container(
-      width: 342,
-      // height: 127, // Height can be dynamic based on content
-      padding: const EdgeInsets.all(10.0),
+      width: double.infinity, // Fill available width
+      constraints: BoxConstraints(maxWidth: 500), // Optional: maximum width
+      padding: EdgeInsets.all(isSmallScreen ? 8.0 : 10.0),
       decoration: BoxDecoration(
         color: cardBgColor,
         borderRadius: BorderRadius.circular(8),
@@ -107,7 +111,7 @@ class GameCard extends StatelessWidget {
               else
                 const SizedBox(height: 15),
              
-              // View Analysis Button
+              // View Analysis Button - Responsive
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -120,25 +124,26 @@ class GameCard extends StatelessWidget {
                       );
                       print('Navigate to Analysis for ${game.team1Name} vs ${game.team2Name}');
                     },
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isSmallScreen ? 6 : 8, 
+                        vertical: isSmallScreen ? 2 : 4
+                      ),
+                    ),
                     // Swapped icon and label
                     icon: Text(
-                      'View Analysis',
+                      isSmallScreen ? 'Analysis' : 'View Analysis',
                       style: GoogleFonts.poppins(
                         color: analysisButtonTextColor,
-                        fontSize: 12,
+                        fontSize: isSmallScreen ? 10 : 12,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     label: SvgPicture.asset(
                       'assets/icons/view_analysis_arrow.svg',
-                      height: 12,
+                      height: isSmallScreen ? 10 : 12,
                       colorFilter: ColorFilter.mode(analysisButtonTextColor, BlendMode.srcIn),
-                    ),
-
-
-
-
-                  ),
+                    ),  ),
                 ],
               ),
             ],
@@ -149,122 +154,113 @@ class GameCard extends StatelessWidget {
 
 
           // Middle Row: Logos, Names, Probabilities
-Row(
-  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  crossAxisAlignment: CrossAxisAlignment.center,
-  children: [
-    // Team 1 Info
-    Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Add Container around the logo
-        Container(
-          width: 60,
-          height: 60,
-          margin: EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            border: Border.all(color: cardBorderColor, width: 1),
-       
-          ),
-          child: _buildTeamLogo(game.team1LogoPath, 40),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          game.team1Name,
-          style: GoogleFonts.poppins(
-            color: textColor,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    ),
-   
-    // Probabilities
-    Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Win Probability',
-          style: GoogleFonts.poppins(
-            color: secondaryTextColor,
-            fontSize: 10,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Team 1 Probability
-            Text(
-              '${(game.team1WinProbability * 100).toStringAsFixed(0)}%',
-              style: GoogleFonts.poppins(
-                color: textColor,
-                fontSize: (game.team1WinProbability > game.team2WinProbability)
-                    ? 29
-                    : 22,
-                fontWeight: FontWeight.w500,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Team 1 Info
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Responsive logo container
+                  Container(
+                    width: isSmallScreen ? 50 : 60,
+                    height: isSmallScreen ? 50 : 60,
+                    margin: EdgeInsets.all(isSmallScreen ? 8 : 15),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: cardBorderColor, width: 1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: _buildTeamLogo(game.team1LogoPath, isSmallScreen ? 35 : 40),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    game.team1Name,
+                    style: GoogleFonts.poppins(
+                      color: textColor,
+                      fontSize: isSmallScreen ? 11 : 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Text(
-                '-',
-                style: GoogleFonts.poppins(
-                  color: secondaryTextColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w300,
-                ),
+              // Probabilities
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Win Probability',
+                    style: GoogleFonts.poppins(
+                      color: secondaryTextColor,
+                      fontSize: isSmallScreen ? 8 : 10,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Team 1 Probability
+                      Text(
+                        '${(game.team1WinProbability * 100).toStringAsFixed(0)}%',
+                        style: GoogleFonts.poppins(
+                          color: textColor,
+                          fontSize: isSmallScreen ? 16 : 18,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text(
+                          '-',
+                          style: GoogleFonts.poppins(
+                            color: secondaryTextColor,
+                            fontSize: isSmallScreen ? 12 : 14,
+                            fontWeight: FontWeight.w300,
+                          ),
+                        ),
+                      ),
+                      // Team 2 Probability
+                      Text(
+                        '${(game.team2WinProbability * 100).toStringAsFixed(0)}%',
+                        style: GoogleFonts.poppins(
+                          color: textColor,
+                          fontSize: isSmallScreen ? 16 : 18,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ),
-            // Team 2 Probability
-            Text(
-              '${(game.team2WinProbability * 100).toStringAsFixed(0)}%',
-              style: GoogleFonts.poppins(
-                color: textColor,
-                fontSize: (game.team2WinProbability > game.team1WinProbability)
-                    ? 29
-                    : 22,
-                fontWeight: FontWeight.w500,
+              // Team 2 Info
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Responsive logo container
+                  Container(
+                    width: isSmallScreen ? 50 : 60,
+                    height: isSmallScreen ? 50 : 60,
+                    margin: EdgeInsets.all(isSmallScreen ? 8 : 15),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: cardBorderColor, width: 1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: _buildTeamLogo(game.team2LogoPath, isSmallScreen ? 35 : 40),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    game.team2Name,
+                    style: GoogleFonts.poppins(
+                      color: textColor,
+                      fontSize: isSmallScreen ? 11 : 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
-      ],
-    ),
-
-
-
-
-    // Team 2 Info
-    Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Add Container around the logo
-        Container(
-          width: 60,
-          height: 60,
-          margin: EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            border: Border.all(color: cardBorderColor, width: 1),
-       
+            ],
           ),
-          child: _buildTeamLogo(game.team2LogoPath, 40),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          game.team2Name,
-          style: GoogleFonts.poppins(
-            color: textColor,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    ),
-  ],
-),
 
 
 
@@ -278,8 +274,8 @@ Row(
           ClipRRect(
   borderRadius: BorderRadius.circular(100),
   child: SizedBox(
-    width: 322,
-    height: 15,
+    width: double.infinity, // Fill available width
+    height: isSmallScreen ? 12 : 15,
     child: Stack(
       children: [
         // Team 1 fill - aligned to the left

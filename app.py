@@ -487,91 +487,54 @@ def get_games():
         today = datetime.datetime(current_date.year, current_date.month, current_date.day)
         today_str = current_date.strftime('%Y-%m-%dT%H:%M:%SZ')
         
-        # Create dates for May 6 and May 8, 2025
-        may_6_date = datetime.datetime(2025, 5, 6, current_date.hour, current_date.minute)
-        may_6_str = may_6_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-        may_8_date = datetime.datetime(2025, 5, 8, current_date.hour, current_date.minute)
-        may_8_str = may_8_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        # Create dates for May 14-21, 2025
+        tomorrow = datetime.datetime.now() + datetime.timedelta(days=1)
+        may_14_date = datetime.datetime(2025, 5, 14, 9, 30)  # 9:30 AM
+        may_14_str = may_14_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        may_15_date = datetime.datetime(2025, 5, 15, 19, 0)  # 7:00 PM (TBD)
+        may_15_str = may_15_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        may_17_date = datetime.datetime(2025, 5, 17, 19, 0)  # 7:00 PM (TBD)
+        may_17_str = may_17_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        may_18_date = datetime.datetime(2025, 5, 18, 19, 0)  # 7:00 PM (TBD)
+        may_18_str = may_18_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        may_20_date = datetime.datetime(2025, 5, 20, 19, 0)  # 7:00 PM (TBD)
+        may_20_str = may_20_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        may_21_date = datetime.datetime(2025, 5, 21, 19, 0)  # 7:00 PM (TBD)
+        may_21_str = may_21_date.strftime('%Y-%m-%dT%H:%M:%SZ')
         
         # All games data
         all_games = [
-            # Live game (today with LIVE status)
+            # Live game (Thunder vs Nuggets - May 14, 2025 at 9:30 AM)
             {
                 'id': '0022400001',
                 'home_team': {
-                    'id': '1610612747',
-                    'name': 'Thunders',
+                    'id': '1610612760',
+                    'name': 'Thunder',
                     'abbreviation': 'OKC',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612747/global/L/logo.svg',
-                    'score': 78
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612760/global/L/logo.svg',
+                    'score': 85
                 },
                 'away_team': {
-                    'id': '1610612742',
-                    'name': 'Mavericks',
-                    'abbreviation': 'DAL',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612742/global/L/logo.svg',
-                    'score': 65
+                    'id': '1610612743',
+                    'name': 'Nuggets',
+                    'abbreviation': 'DEN',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612743/global/L/logo.svg',
+                    'score': 78
                 },
                 'status': 'LIVE',
-                'game_clock': '3:24',
+                'game_clock': '2:45',
                 'period': 3,
-                'start_time': today_str,
-                'prediction': get_prediction_for_teams('Thunders', 'Mavericks')
+                'start_time': may_14_str,
+                'prediction': get_prediction_for_teams('Thunder', 'Nuggets')
             },
-            # Today game (scheduled for today but not live)
+            # May 15, 2025 - Celtics vs Knicks
             {
                 'id': '0022400002',
                 'home_team': {
-                    'id': '1610612744',
-                    'name': 'Warriors',
-                    'abbreviation': 'GSW',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612744/global/L/logo.svg',
-                    'score': 0
-                },
-                'away_team': {
-                    'id': '1610612751',
-                    'name': 'Nets',
-                    'abbreviation': 'BKN',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612751/global/L/logo.svg',
-                    'score': 0
-                },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': today_str,
-                'prediction': get_prediction_for_teams('Warriors', 'Nets')
-            },
-            # Upcoming game 1 (May 6)
-            {
-                'id': '0022400003',
-                'home_team': {
-                    'id': '1610612745',
-                    'name': 'Rockets',
-                    'abbreviation': 'HOU',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612745/global/L/logo.svg',
-                    'score': 0
-                },
-                'away_team': {
-                    'id': '1610612759',
-                    'name': 'Spurs',
-                    'abbreviation': 'SAS',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612759/global/L/logo.svg',
-                    'score': 0
-                },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': may_6_str,
-                'prediction': get_prediction_for_teams('Rockets', 'Spurs')
-            },
-            # Upcoming game 2 (May 8)
-            {
-                'id': '0022400004',
-                'home_team': {
-                    'id': '1610612748',
-                    'name': 'Heat',
-                    'abbreviation': 'MIA',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612748/global/L/logo.svg',
+                    'id': '1610612738',
+                    'name': 'Celtics',
+                    'abbreviation': 'BOS',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612738/global/L/logo.svg',
                     'score': 0
                 },
                 'away_team': {
@@ -584,8 +547,215 @@ def get_games():
                 'status': 'SCHEDULED',
                 'game_clock': '',
                 'period': 0,
-                'start_time': may_8_str,
-                'prediction': get_prediction_for_teams('Heat', 'Knicks')
+                'start_time': may_15_str,
+                'prediction': get_prediction_for_teams('Celtics', 'Knicks')
+            },
+            # May 15, 2025 - Timberwolves vs Warriors
+            {
+                'id': '0022400003',
+                'home_team': {
+                    'id': '1610612750',
+                    'name': 'Timberwolves',
+                    'abbreviation': 'MIN',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612750/global/L/logo.svg',
+                    'score': 0
+                },
+                'away_team': {
+                    'id': '1610612744',
+                    'name': 'Warriors',
+                    'abbreviation': 'GSW',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612744/global/L/logo.svg',
+                    'score': 0
+                },
+                'status': 'SCHEDULED',
+                'game_clock': '',
+                'period': 0,
+                'start_time': may_15_str,
+                'prediction': get_prediction_for_teams('Timberwolves', 'Warriors')
+            },
+            # May 15, 2025 - Pacers vs Cavaliers
+            {
+                'id': '0022400004',
+                'home_team': {
+                    'id': '1610612754',
+                    'name': 'Pacers',
+                    'abbreviation': 'IND',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612754/global/L/logo.svg',
+                    'score': 0
+                },
+                'away_team': {
+                    'id': '1610612739',
+                    'name': 'Cavaliers',
+                    'abbreviation': 'CLE',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612739/global/L/logo.svg',
+                    'score': 0
+                },
+                'status': 'SCHEDULED',
+                'game_clock': '',
+                'period': 0,
+                'start_time': may_15_str,
+                'prediction': get_prediction_for_teams('Pacers', 'Cavaliers')
+            },
+            # May 15, 2025 - Nuggets vs Thunder
+            {
+                'id': '0022400005',
+                'home_team': {
+                    'id': '1610612743',
+                    'name': 'Nuggets',
+                    'abbreviation': 'DEN',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612743/global/L/logo.svg',
+                    'score': 0
+                },
+                'away_team': {
+                    'id': '1610612760',
+                    'name': 'Thunder',
+                    'abbreviation': 'OKC',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612760/global/L/logo.svg',
+                    'score': 0
+                },
+                'status': 'SCHEDULED',
+                'game_clock': '',
+                'period': 0,
+                'start_time': may_15_str,
+                'prediction': get_prediction_for_teams('Nuggets', 'Thunder')
+            },
+            # May 17, 2025 - Knicks vs Celtics
+            {
+                'id': '0022400006',
+                'home_team': {
+                    'id': '1610612752',
+                    'name': 'Knicks',
+                    'abbreviation': 'NYK',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612752/global/L/logo.svg',
+                    'score': 0
+                },
+                'away_team': {
+                    'id': '1610612738',
+                    'name': 'Celtics',
+                    'abbreviation': 'BOS',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612738/global/L/logo.svg',
+                    'score': 0
+                },
+                'status': 'SCHEDULED',
+                'game_clock': '',
+                'period': 0,
+                'start_time': may_17_str,
+                'prediction': get_prediction_for_teams('Knicks', 'Celtics')
+            },
+            # May 18, 2025 - Cavaliers vs Pacers
+            {
+                'id': '0022400007',
+                'home_team': {
+                    'id': '1610612739',
+                    'name': 'Cavaliers',
+                    'abbreviation': 'CLE',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612739/global/L/logo.svg',
+                    'score': 0
+                },
+                'away_team': {
+                    'id': '1610612754',
+                    'name': 'Pacers',
+                    'abbreviation': 'IND',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612754/global/L/logo.svg',
+                    'score': 0
+                },
+                'status': 'SCHEDULED',
+                'game_clock': '',
+                'period': 0,
+                'start_time': may_18_str,
+                'prediction': get_prediction_for_teams('Cavaliers', 'Pacers')
+            },
+            # May 18, 2025 - Thunder vs Nuggets
+            {
+                'id': '0022400008',
+                'home_team': {
+                    'id': '1610612760',
+                    'name': 'Thunder',
+                    'abbreviation': 'OKC',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612760/global/L/logo.svg',
+                    'score': 0
+                },
+                'away_team': {
+                    'id': '1610612743',
+                    'name': 'Nuggets',
+                    'abbreviation': 'DEN',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612743/global/L/logo.svg',
+                    'score': 0
+                },
+                'status': 'SCHEDULED',
+                'game_clock': '',
+                'period': 0,
+                'start_time': may_18_str,
+                'prediction': get_prediction_for_teams('Thunder', 'Nuggets')
+            },
+            # May 18, 2025 - Warriors vs Timberwolves
+            {
+                'id': '0022400009',
+                'home_team': {
+                    'id': '1610612744',
+                    'name': 'Warriors',
+                    'abbreviation': 'GSW',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612744/global/L/logo.svg',
+                    'score': 0
+                },
+                'away_team': {
+                    'id': '1610612750',
+                    'name': 'Timberwolves',
+                    'abbreviation': 'MIN',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612750/global/L/logo.svg',
+                    'score': 0
+                },
+                'status': 'SCHEDULED',
+                'game_clock': '',
+                'period': 0,
+                'start_time': may_18_str,
+                'prediction': get_prediction_for_teams('Warriors', 'Timberwolves')
+            },
+            # May 20, 2025 - Celtics vs Knicks
+            {
+                'id': '0022400010',
+                'home_team': {
+                    'id': '1610612738',
+                    'name': 'Celtics',
+                    'abbreviation': 'BOS',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612738/global/L/logo.svg',
+                    'score': 0
+                },
+                'away_team': {
+                    'id': '1610612752',
+                    'name': 'Knicks',
+                    'abbreviation': 'NYK',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612752/global/L/logo.svg',
+                    'score': 0
+                },
+                'status': 'SCHEDULED',
+                'game_clock': '',
+                'period': 0,
+                'start_time': may_20_str,
+                'prediction': get_prediction_for_teams('Celtics', 'Knicks')
+            },
+            # May 21, 2025 - Timberwolves vs Warriors
+            {
+                'id': '0022400011',
+                'home_team': {
+                    'id': '1610612750',
+                    'name': 'Timberwolves',
+                    'abbreviation': 'MIN',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612750/global/L/logo.svg',
+                    'score': 0
+                },
+                'away_team': {
+                    'id': '1610612744',
+                    'name': 'Warriors',
+                    'abbreviation': 'GSW',
+                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612744/global/L/logo.svg',
+                    'score': 0
+                },
+                'status': 'SCHEDULED',
+                'game_clock': '',
+                'period': 0,
+                'start_time': may_21_str,
+                'prediction': get_prediction_for_teams('Timberwolves', 'Warriors')
             }
         ]
         

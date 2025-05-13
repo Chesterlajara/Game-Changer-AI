@@ -162,69 +162,49 @@ class _GamePageState extends State<GamePage> {
   // Helper method to build individual tabs
   Widget _buildTabItem(String title, int index) {
     bool isActive = _selectedTabIndex == index;
-    // Access ThemeProvider for colors
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final bool isDark = themeProvider.isDarkMode;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
+    // Get screen width for responsive sizing
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360; // Breakpoint for extra small screens
 
+    // Define colors based on theme
+    final Color activeTabBgColor = isDark ? const Color(0xFF365772) : const Color(0xFF365772);
+    final Color inactiveTabBgColor = isDark ? Colors.transparent : Colors.transparent;
+    final Color activeTabTextColor = Colors.white;
+    final Color inactiveTabTextColor = isDark ? Colors.white70 : Colors.black87;
 
-    final Color activeBgColor = isDark ? Colors.grey[700]! : Colors.white;
-    final Color inactiveBgColor = Colors.transparent;
-    final Color activeTextColor = isDark ? Colors.white : Colors.black;
-    final Color inactiveTextColor = isDark ? Colors.grey[400]! : const Color(0xFF4B5563);
+    // Check if this tab is selected
+    final isSelected = _selectedTabIndex == index;
 
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedTabIndex = index;
-
-
-          // Reset date to today when Today tab is clicked
-          if (index == 0) { // Today tab
-            selectedDate = DateTime.now();
-            _log.info('Today tab clicked, resetting date to: $selectedDate');
-          }
-        });
-      },
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            child: AnimatedOpacity(
-              opacity: isActive ? 1.0 : 0.0,
-              duration: Duration(milliseconds: 200),
-              child: Container(
-                height: 40,
-                width: MediaQuery.of(context).size.width / 3,
-                decoration: BoxDecoration(
-                  color: isActive
-                  ? (isDark ? Colors.grey[800] : Color(0xFF365772))
-                  : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedTabIndex = index;  // Update selected tab
+            if (index != 1) {
+              // Reset date filter when not on upcoming tab
+              _resetDateFilter();
+            }
+          });
+        },
+        child: Container(
+          height: isSmallScreen ? 32 : 36,
+          decoration: BoxDecoration(
+            color: isSelected ? activeTabBgColor : inactiveTabBgColor,
+            borderRadius: BorderRadius.circular(17), // Rounded corners
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            title,
+            style: GoogleFonts.poppins(
+              color: isSelected ? activeTabTextColor : inactiveTabTextColor,
+              fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+              fontSize: isSmallScreen ? 14 : 16,
             ),
           ),
-          // Text container
-          Container(
-            height: 40,
-            margin: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              title,
-              style: GoogleFonts.poppins( 
-            color: isActive ? Colors.white : Colors.black, 
-            fontWeight: FontWeight.w700,
-          ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -313,55 +293,62 @@ class _GamePageState extends State<GamePage> {
     ],
   ),
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0), 
-        child: Column(
-          children: [
-            // Tab Bar Container
-            Container(
-              width: 343,
-              height: 39,
-              decoration: BoxDecoration(
-                color: tabBarBackgroundColor, 
-                borderRadius: BorderRadius.circular(25),
-                border: Border.all(
-                  color: tabBarBorderColor, 
-                  width: 0.2,
-                ),
+              padding: EdgeInsets.symmetric(
+                vertical: 10.0, 
+                // Use smaller horizontal padding on smaller screens
+                horizontal: MediaQuery.of(context).size.width < 360 ? 8.0 : 16.0
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildTabItem('Today', 0),
-                  _buildTabItem('Upcoming', 1),
-                  _buildTabItem('Live', 2),
-                ],
-              ),
-            ),
+                  // Tab selector at the top
+                  Container(
+                    margin: EdgeInsets.only(bottom: MediaQuery.of(context).size.width < 360 ? 12 : 20),
+                    padding: const EdgeInsets.all(1.5),
+                    height: MediaQuery.of(context).size.width < 360 ? 35 : 39,  // Responsive height
+                    decoration: BoxDecoration(
+                      color: tabBarBackgroundColor,
+                      borderRadius: BorderRadius.circular(20), // Rounded corners for the container
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                        _buildTabItem('Today', 0),
+                        _buildTabItem('Upcoming', 1),
+                        _buildTabItem('Live', 2),
+                      ],
+                    ),
+                  ),
             const SizedBox(height: 20),
 
 
-            // Section Title with Refresh Button for Upcoming tab
+            // Section Title with Refresh Button
             Padding(
-              padding: const EdgeInsets.only(bottom: 10.0), // Space below title
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).size.width < 360 ? 8.0 : 10.0), // Space below title
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Title - responsive font size
                   Text(
-                    // Dynamic Title based on selected tab
                     _getTabTitle(),
                     style: GoogleFonts.poppins(
                       color: textColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontSize: MediaQuery.of(context).size.width < 360 ? 16 : 20,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  // Show refresh button only in Upcoming tab
-                  if (_selectedTabIndex == 1) // 1 is the index for Upcoming tab
-                    IconButton(
-                      icon: Icon(Icons.refresh, color: textColor),
-                      tooltip: 'Show all upcoming games',
-                      onPressed: _resetDateFilter,
+                  // Refresh button
+                  IconButton(
+                    icon: Icon(
+                      Icons.refresh, 
+                      color: textColor.withOpacity(0.6),
+                      size: MediaQuery.of(context).size.width < 360 ? 20 : 24,
                     ),
+                    onPressed: _selectedTabIndex == 1 ? _resetDateFilter : () {
+                      Provider.of<GameProvider>(context, listen: false).fetchGames();
+                    },
+                    tooltip: _selectedTabIndex == 1 ? 'Reset date filter' : 'Refresh games',
+                  ),
                 ],
               ),
             ),
@@ -430,15 +417,20 @@ class _GamePageState extends State<GamePage> {
                     List<Widget> dateGroups = [];
                    
                     gamesByDate.forEach((date, games) {
-                      // Add date header
+                      // Add date header - responsive size
                       dateGroups.add(
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(0, 16.0, 0, 8.0),
+                          padding: EdgeInsets.fromLTRB(
+                            0, 
+                            MediaQuery.of(context).size.width < 360 ? 12.0 : 16.0, 
+                            0, 
+                            MediaQuery.of(context).size.width < 360 ? 6.0 : 8.0
+                          ),
                           child: Text(
                             date,
                             style: GoogleFonts.poppins(
                               color: textColor,
-                              fontSize: 16,
+                              fontSize: MediaQuery.of(context).size.width < 360 ? 14 : 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

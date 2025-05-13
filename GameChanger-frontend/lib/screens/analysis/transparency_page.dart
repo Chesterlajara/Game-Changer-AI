@@ -41,6 +41,12 @@ class _TransparencyPageState extends State<TransparencyPage> {
   Map<String, dynamic> playerImpacts = {};
   Map<String, dynamic> historicalData = {};
   
+  // List of injured players
+  final Set<String> injuredPlayers = {
+    'Jayson Tatum',  // Celtics star player
+    'Stephen Curry', // Warriors star player
+  };
+  
   // Team statistics for the hexagon chart
   Map<String, double> team1Stats = {
     'PPG': 0.6,
@@ -1253,8 +1259,11 @@ class _TransparencyPageState extends State<TransparencyPage> {
               final isTeam1 = impact > 0;
               final teamName = isTeam1 ? widget.game.team1Name : widget.game.team2Name;
               
-              // Set colors based on team
-              final barColor = isTeam1 ? Colors.blue.shade700 : Colors.red.shade700;
+              // Check if player is injured
+              final bool isInjured = injuredPlayers.contains(playerName);
+              
+              // Set colors based on team and injury status
+              final barColor = isInjured ? Colors.grey : (isTeam1 ? Colors.blue.shade700 : Colors.red.shade700);
               
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
@@ -1265,10 +1274,37 @@ class _TransparencyPageState extends State<TransparencyPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Text(
-                            playerName,
-                            style: playerNameStyle,
-                            overflow: TextOverflow.ellipsis,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  playerName,
+                                  style: playerNameStyle.copyWith(
+                                    color: isInjured ? Colors.grey : playerNameStyle.color,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isInjured)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8.0),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade100,
+                                      borderRadius: BorderRadius.circular(4.0),
+                                    ),
+                                    child: Text(
+                                      'INJURED',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                         Text(
@@ -1435,57 +1471,98 @@ class _TransparencyPageState extends State<TransparencyPage> {
                 ),
               )
             else
-              ...sortedPlayers.map((entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Card(
-                  color: isDarkMode ? Colors.grey[800] : Colors.white,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isSmallScreen ? 8.0 : 12.0,
-                      vertical: isSmallScreen ? 8.0 : 12.0
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.person,
-                          size: isSmallScreen ? 20 : 24,
-                          color: isDarkMode ? Colors.blue[300] : Colors.blue[700],
-                        ),
-                        const SizedBox(width: 12),
-                        // Player name with overflow handling
-                        Expanded(
-                          child: Text(
-                            entry.key,
-                            style: GoogleFonts.poppins(
-                              fontSize: isSmallScreen ? 13 : 14,
-                              fontWeight: FontWeight.w500,
-                              color: isDarkMode ? Colors.white : Colors.black,
+              ...sortedPlayers.map((entry) {
+                // Check if player is injured - moved outside the widget tree
+                final bool isInjured = injuredPlayers.contains(entry.key);
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Card(
+                    color: isDarkMode ? Colors.grey[800] : Colors.white,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isSmallScreen ? 8.0 : 12.0,
+                        vertical: isSmallScreen ? 8.0 : 12.0
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isInjured ? Icons.medical_services : Icons.person,
+                            size: isSmallScreen ? 20 : 24,
+                            color: isInjured 
+                                ? Colors.grey.shade500
+                                : (isDarkMode ? Colors.blue[300] : Colors.blue[700]),
+                          ),
+                          const SizedBox(width: 12),
+                          // Player name with overflow handling
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    entry.key,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: isSmallScreen ? 13 : 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: isInjured
+                                          ? Colors.grey
+                                          : (isDarkMode ? Colors.white : Colors.black),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (isInjured)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 8.0),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.shade100,
+                                        borderRadius: BorderRadius.circular(4.0),
+                                      ),
+                                      child: Text(
+                                        'INJURED',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.red.shade900,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        // Impact percentage with responsive sizing
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isSmallScreen ? 6 : 8, 
-                            vertical: isSmallScreen ? 3 : 4
+                          // Impact percentage with responsive sizing
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isSmallScreen ? 6 : 8, 
+                              vertical: isSmallScreen ? 3 : 4
+                            ),
+                            decoration: BoxDecoration(
+                              color: isInjured 
+                                  ? Colors.grey.shade300
+                                  : (entry.value is double && (entry.value as double) > 0
+                                      ? Colors.green[100]! 
+                                      : Colors.red[100]!),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              isInjured
+                                  ? '0.0%' // Show zero impact for injured players
+                                  : '${((entry.value.abs() is double ? entry.value.abs() : 0.1) * 100).toStringAsFixed(1)}%',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12, 
+                                color: isInjured ? Colors.grey.shade700 : Colors.white,
+                              ),
+                            ),
                           ),
-                          decoration: BoxDecoration(
-                            color: entry.value is double && (entry.value as double) > 0
-                                ? Colors.green[100]! 
-                                : Colors.red[100]!,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '${((entry.value.abs() is double ? entry.value.abs() : 0.1) * 100).toStringAsFixed(1)}%',
-                            style: GoogleFonts.poppins(fontSize: 12, color: Colors.white),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              )),
+                );
+              }),
           ],
         ),
       ),

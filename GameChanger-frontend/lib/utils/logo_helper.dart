@@ -60,6 +60,8 @@ class LogoHelper {
     // Map common team names, abbreviations, and nicknames to local logo filenames
     // Eastern Conference
     if (teamName.contains('celtics') || teamName.contains('boston')) return 'celtics';
+    // Explicitly check for Charlotte Hornets first to avoid confusion with Nets
+    if (teamName.contains('hornets') || teamName.contains('charlotte')) return 'hornets';
     if (teamName.contains('nets') || teamName.contains('brooklyn')) return 'nets';
     if (teamName.contains('knicks') || teamName.contains('new york')) return 'knicks';
     if (teamName.contains('76ers') || teamName.contains('sixers') || teamName.contains('philadelphia')) return 'sixers';
@@ -70,7 +72,6 @@ class LogoHelper {
     if (teamName.contains('pacers') || teamName.contains('indiana')) return 'pacers';
     if (teamName.contains('bucks') || teamName.contains('milwaukee')) return 'bucks';
     if (teamName.contains('hawks') || teamName.contains('atlanta')) return 'hawks';
-    if (teamName.contains('hornets') || teamName.contains('charlotte')) return 'hornets';
     if (teamName.contains('heat') || teamName.contains('miami')) return 'miami heat';
     if (teamName.contains('magic') || teamName.contains('orlando')) return 'orlando magic';
     if (teamName.contains('wizards') || teamName.contains('washington')) return 'wizards';

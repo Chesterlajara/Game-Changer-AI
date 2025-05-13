@@ -180,7 +180,7 @@ class _PlayerAdjustmentsCardState extends State<PlayerAdjustmentsCard> {
                 ),
                 if (widget.selectedTeam1 != null && widget.selectedTeam2 != null)
                   Container(
-                    width: screenWidth < 600 ? 150: 120,
+                    width: screenWidth < 600 ? 150 : screenWidth < 900 ? 200 : 250,
                     child: DropdownButtonFormField<String>(
                       value: widget.selectedTeamForAdjustment,
                       hint: Text(

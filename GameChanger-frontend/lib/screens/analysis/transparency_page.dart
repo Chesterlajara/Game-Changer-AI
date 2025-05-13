@@ -1568,10 +1568,16 @@ class _TransparencyPageState extends State<TransparencyPage> {
         final matchDate = DateTime(year, month, day);
         final dateString = DateFormat('MMM d, yyyy').format(matchDate);
         
-        // Generate realistic NBA scores (typically 90-130 range)
+        // Generate varied and realistic NBA scores
         final isTeam1Home = i % 2 == 0;
-        final team1Score = 100 + (random % 31) + (i * 7) % 15; // 100-145 range
-        final team2Score = 95 + (random % 28) + (i * 11) % 15;  // 95-138 range
+        
+        // Use different seed values for variation, including team name to ensure different teams get different scores
+        final seed1 = random + (i * 19) + team1Name.length * 4 + (i % 3) * 13;
+        final seed2 = random + (i * 29) + team2Name.length * 7 + (i % 4) * 11;
+        
+        // Generate diverse scores in the 95-130 range
+        final team1Score = 95 + (seed1 % 36); // 95-130 range 
+        final team2Score = 95 + (seed2 % 36); // 95-130 range
         
         // Create matchup data
         matchups.add({
@@ -1599,9 +1605,14 @@ class _TransparencyPageState extends State<TransparencyPage> {
           anyZeroScores = true;
           print('Found a 0-0 score matchup, replacing with realistic scores');
           
-          // Generate realistic NBA scores
-          final homeTeamScore = 100 + ((random + i * 31) % 31);
-          final awayTeamScore = 95 + ((random + i * 47) % 33);
+          // Generate varied and realistic NBA scores (90-130 range)
+          // Use different seed factors for more randomness
+          final seed1 = random + (i * 17) + matchup['team1'].toString().length * 3;
+          final seed2 = random + (i * 23) + matchup['team2'].toString().length * 5;
+          
+          // More diverse score generation with different ranges and seeds
+          final homeTeamScore = 90 + (seed1 % 41); // 90-130 range
+          final awayTeamScore = 90 + (seed2 % 41);  // 90-130 range
           
           // Update the matchup with realistic scores
           matchup['score1'] = homeTeamScore.toString();

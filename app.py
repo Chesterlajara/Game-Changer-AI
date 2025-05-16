@@ -1,7 +1,24 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 import random
 import datetime
+import os
+import json
+import pandas as pd
+import numpy as np
+import traceback
+from urllib.parse import quote
+
+# NBA API imports
+try:
+    from nba_api.live.nba.endpoints import scoreboard
+    from nba_api.stats.static import teams
+    from nba_api.live.nba.endpoints import boxscore
+    from nba_api.stats.endpoints import teamdashboardbygeneralsplits, leaguedashteamstats, playercareerstats
+    NBA_API_AVAILABLE = True
+except ImportError:
+    print("Warning: nba_api package not available. Will use fallback data.")
+    NBA_API_AVAILABLE = False
 
 # Import the TeamPredictionModel
 from ml_models.predict_winner import TeamPredictionModel
@@ -14,12 +31,6 @@ from models.prediction import PredictionModel
 from models.game_analysis import GameAnalysis
 from models.team_stats import TeamStats
 from models.player_stats import PlayerStats
-
-# Import NBA API packages
-from nba_api.stats.endpoints import teamdashboardbygeneralsplits, leaguedashteamstats
-from nba_api.stats.static import teams
-import pandas as pd
-import os
 
 # Dictionary to cache team stats to avoid repeated API calls
 team_stats_cache = {}
@@ -479,315 +490,413 @@ def get_games():
         # Get filter parameter (optional)
         category = request.args.get('category', None)  # 'today', 'upcoming', 'live', or None for all
         
-        # In a real implementation, we would fetch from NBA API
-        # For now, generate sample game data
-        
         # Get current date for proper categorization
         current_date = datetime.datetime.now()
         today = datetime.datetime(current_date.year, current_date.month, current_date.day)
         today_str = current_date.strftime('%Y-%m-%dT%H:%M:%SZ')
         
-        # Create dates for May 14-21, 2025
-        tomorrow = datetime.datetime.now() + datetime.timedelta(days=1)
-        may_14_date = datetime.datetime(2025, 5, 14, 9, 30)  # 9:30 AM
-        may_14_str = may_14_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-        may_15_date = datetime.datetime(2025, 5, 15, 19, 0)  # 7:00 PM (TBD)
-        may_15_str = may_15_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-        may_17_date = datetime.datetime(2025, 5, 17, 19, 0)  # 7:00 PM (TBD)
-        may_17_str = may_17_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-        may_18_date = datetime.datetime(2025, 5, 18, 19, 0)  # 7:00 PM (TBD)
-        may_18_str = may_18_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-        may_20_date = datetime.datetime(2025, 5, 20, 19, 0)  # 7:00 PM (TBD)
-        may_20_str = may_20_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-        may_21_date = datetime.datetime(2025, 5, 21, 19, 0)  # 7:00 PM (TBD)
-        may_21_str = may_21_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        # Dictionary to store all games
+        all_games = []
         
-        # All games data
-        all_games = [
-            # Live game (Thunder vs Nuggets - May 14, 2025 at 9:30 AM)
-            {
-                'id': '0022400001',
-                'home_team': {
-                    'id': '1610612760',
-                    'name': 'Thunder',
-                    'abbreviation': 'OKC',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612760/global/L/logo.svg',
-                    'score': 85
+        try:
+            # Check if NBA API is available before attempting to use it
+            if not NBA_API_AVAILABLE:
+                print("NBA API not available, using fallback data...")
+                raise ImportError("NBA API package not available")
+                
+            # Try to get real data from NBA API with a short timeout
+            print("Fetching game data from NBA API...")
+            # Get today's scoreboard from the NBA API
+            score_board = scoreboard.ScoreBoard()
+            games_dict = score_board.get_dict()
+            
+            # Check if we got valid data
+            if 'scoreboard' in games_dict and 'games' in games_dict['scoreboard']:
+                api_games = games_dict['scoreboard']['games']
+                print(f"Found {len(api_games)} games from NBA API")
+                
+                # Get the teams info for logo URLs and abbreviations
+                nba_teams = teams.get_teams()
+                team_dict = {team['id']: team for team in nba_teams}
+                
+                # Process each game from the API
+                for game in api_games:
+                    game_id = game['gameId']
+                    home_team_id = game['homeTeam']['teamId']
+                    away_team_id = game['awayTeam']['teamId']
+                    
+                    # Get team names
+                    home_team_name = game['homeTeam']['teamName']
+                    away_team_name = game['awayTeam']['teamName']
+                    
+                    # Get team abbreviations
+                    home_team_abbr = game['homeTeam'].get('teamTricode', '')
+                    away_team_abbr = game['awayTeam'].get('teamTricode', '')
+                    
+                    # Get game status
+                    game_status = game.get('gameStatus', 1)
+                    if game_status == 1:
+                        status = 'SCHEDULED'
+                    elif game_status == 2:
+                        status = 'LIVE'
+                    else:
+                        status = 'FINAL'
+                    
+                    # Get scores
+                    home_score = int(game['homeTeam'].get('score', 0))
+                    away_score = int(game['awayTeam'].get('score', 0))
+                    
+                    # Get game time and period
+                    game_clock = game.get('gameClock', '')
+                    period = game.get('period', 0)
+                    
+                    # Get start time
+                    start_time_str = game.get('gameTimeUTC', '')
+                    if not start_time_str:
+                        # If no start time, use the game date
+                        start_time = datetime.datetime.strptime(game.get('gameDate', ''), '%Y-%m-%d')
+                        start_time_str = start_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+                    
+                    # Generate logo URLs based on team abbreviations
+                    home_logo_url = f"https://cdn.nba.com/logos/nba/{home_team_id}/global/L/logo.svg"
+                    away_logo_url = f"https://cdn.nba.com/logos/nba/{away_team_id}/global/L/logo.svg"
+                    
+                    # Get prediction for these teams
+                    prediction = get_prediction_for_teams(home_team_name, away_team_name)
+                    
+                    # Format the game data in our standard format
+                    game_data = {
+                        'id': game_id,
+                        'home_team': {
+                            'id': home_team_id,
+                            'name': home_team_name,
+                            'abbreviation': home_team_abbr,
+                            'logo_url': home_logo_url,
+                            'score': home_score
+                        },
+                        'away_team': {
+                            'id': away_team_id,
+                            'name': away_team_name,
+                            'abbreviation': away_team_abbr,
+                            'logo_url': away_logo_url,
+                            'score': away_score
+                        },
+                        'status': status,
+                        'game_clock': game_clock,
+                        'period': period,
+                        'start_time': start_time_str,
+                        'prediction': prediction
+                    }
+                    
+                    all_games.append(game_data)
+            else:
+                print("No valid game data found in NBA API response, using fallback data")
+                # Use fallback data below
+                raise Exception("No valid game data found in NBA API response")
+                
+        except Exception as e:
+            print(f"Error fetching data from NBA API: {e}")
+            print("Using fallback game data...")
+            
+            # If we failed to get data from the API, use our fallback mock data
+            # Create dates for sample games
+            current_date = datetime.datetime.now()
+            
+            # Create today's date for 'today' games
+            today_date = datetime.datetime(current_date.year, current_date.month, current_date.day, 9, 30) 
+            today_str = today_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+            
+            # Create tomorrow's date for 'upcoming' games
+            tomorrow = current_date + datetime.timedelta(days=1)
+            tomorrow_str = tomorrow.strftime('%Y-%m-%dT%H:%M:%SZ')
+            
+            # Create dates for more upcoming games - 2, 3, and 5 days in the future
+            upcoming_date1 = current_date + datetime.timedelta(days=2)
+            upcoming_date1_str = upcoming_date1.strftime('%Y-%m-%dT%H:%M:%SZ')
+            
+            upcoming_date2 = current_date + datetime.timedelta(days=3)
+            upcoming_date2_str = upcoming_date2.strftime('%Y-%m-%dT%H:%M:%SZ')
+            
+            upcoming_date3 = current_date + datetime.timedelta(days=5)
+            upcoming_date3_str = upcoming_date3.strftime('%Y-%m-%dT%H:%M:%SZ')
+            
+            # Fallback game data
+            all_games = [
+                # Live game (Thunder vs Nuggets) - TODAY
+                {
+                    'id': '0022400001',
+                    'home_team': {
+                        'id': '1610612760',
+                        'name': 'Thunder',
+                        'abbreviation': 'OKC',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612760/global/L/logo.svg',
+                        'score': 85
+                    },
+                    'away_team': {
+                        'id': '1610612743',
+                        'name': 'Nuggets',
+                        'abbreviation': 'DEN',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612743/global/L/logo.svg',
+                        'score': 78
+                    },
+                    'status': 'LIVE',
+                    'game_clock': '2:45',
+                    'period': 3,
+                    'start_time': today_str,
+                    'prediction': get_prediction_for_teams('Thunder', 'Nuggets')
                 },
-                'away_team': {
-                    'id': '1610612743',
-                    'name': 'Nuggets',
-                    'abbreviation': 'DEN',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612743/global/L/logo.svg',
-                    'score': 78
+                # Today game - Celtics vs Knicks
+                {
+                    'id': '0022400002',
+                    'home_team': {
+                        'id': '1610612738',
+                        'name': 'Celtics',
+                        'abbreviation': 'BOS',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612738/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'away_team': {
+                        'id': '1610612752',
+                        'name': 'Knicks',
+                        'abbreviation': 'NYK',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612752/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'status': 'SCHEDULED',
+                    'game_clock': '',
+                    'period': 0,
+                    'start_time': today_str,
+                    'prediction': get_prediction_for_teams('Celtics', 'Knicks')
                 },
-                'status': 'LIVE',
-                'game_clock': '2:45',
-                'period': 3,
-                'start_time': may_14_str,
-                'prediction': get_prediction_for_teams('Thunder', 'Nuggets')
-            },
-            # May 15, 2025 - Celtics vs Knicks
-            {
-                'id': '0022400002',
-                'home_team': {
-                    'id': '1610612738',
-                    'name': 'Celtics',
-                    'abbreviation': 'BOS',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612738/global/L/logo.svg',
-                    'score': 0
+                # TOMORROW - Pacers vs Cavaliers
+                {
+                    'id': '0022400004',
+                    'home_team': {
+                        'id': '1610612754',
+                        'name': 'Pacers',
+                        'abbreviation': 'IND',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612754/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'away_team': {
+                        'id': '1610612739',
+                        'name': 'Cavaliers',
+                        'abbreviation': 'CLE',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612739/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'status': 'SCHEDULED',
+                    'game_clock': '',
+                    'period': 0,
+                    'start_time': tomorrow_str,
+                    'prediction': get_prediction_for_teams('Pacers', 'Cavaliers')
                 },
-                'away_team': {
-                    'id': '1610612752',
-                    'name': 'Knicks',
-                    'abbreviation': 'NYK',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612752/global/L/logo.svg',
-                    'score': 0
+                # TOMORROW - Warriors vs Timberwolves
+                {
+                    'id': '0022400005',
+                    'home_team': {
+                        'id': '1610612744',
+                        'name': 'Warriors',
+                        'abbreviation': 'GSW',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612744/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'away_team': {
+                        'id': '1610612750',
+                        'name': 'Timberwolves',
+                        'abbreviation': 'MIN',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612750/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'status': 'SCHEDULED',
+                    'game_clock': '',
+                    'period': 0,
+                    'start_time': tomorrow_str,
+                    'prediction': get_prediction_for_teams('Warriors', 'Timberwolves')
                 },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': may_15_str,
-                'prediction': get_prediction_for_teams('Celtics', 'Knicks')
-            },
-            # May 15, 2025 - Timberwolves vs Warriors
-            {
-                'id': '0022400003',
-                'home_team': {
-                    'id': '1610612750',
-                    'name': 'Timberwolves',
-                    'abbreviation': 'MIN',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612750/global/L/logo.svg',
-                    'score': 0
+                # 2 DAYS FROM NOW - Nuggets vs Thunder
+                {
+                    'id': '0022400006',
+                    'home_team': {
+                        'id': '1610612743',
+                        'name': 'Nuggets',
+                        'abbreviation': 'DEN',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612743/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'away_team': {
+                        'id': '1610612760',
+                        'name': 'Thunder',
+                        'abbreviation': 'OKC',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612760/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'status': 'SCHEDULED',
+                    'game_clock': '',
+                    'period': 0,
+                    'start_time': upcoming_date1_str,
+                    'prediction': get_prediction_for_teams('Nuggets', 'Thunder')
                 },
-                'away_team': {
-                    'id': '1610612744',
-                    'name': 'Warriors',
-                    'abbreviation': 'GSW',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612744/global/L/logo.svg',
-                    'score': 0
+                # 2 DAYS FROM NOW - Knicks vs Celtics
+                {
+                    'id': '0022400007',
+                    'home_team': {
+                        'id': '1610612752',
+                        'name': 'Knicks',
+                        'abbreviation': 'NYK',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612752/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'away_team': {
+                        'id': '1610612738',
+                        'name': 'Celtics',
+                        'abbreviation': 'BOS',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612738/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'status': 'SCHEDULED',
+                    'game_clock': '',
+                    'period': 0,
+                    'start_time': upcoming_date1_str,
+                    'prediction': get_prediction_for_teams('Knicks', 'Celtics')
                 },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': may_15_str,
-                'prediction': get_prediction_for_teams('Timberwolves', 'Warriors')
-            },
-            # May 15, 2025 - Pacers vs Cavaliers
-            {
-                'id': '0022400004',
-                'home_team': {
-                    'id': '1610612754',
-                    'name': 'Pacers',
-                    'abbreviation': 'IND',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612754/global/L/logo.svg',
-                    'score': 0
+                # 3 DAYS FROM NOW - Cavaliers vs Pacers
+                {
+                    'id': '0022400008',
+                    'home_team': {
+                        'id': '1610612739',
+                        'name': 'Cavaliers',
+                        'abbreviation': 'CLE',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612739/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'away_team': {
+                        'id': '1610612754',
+                        'name': 'Pacers',
+                        'abbreviation': 'IND',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612754/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'status': 'SCHEDULED',
+                    'game_clock': '',
+                    'period': 0,
+                    'start_time': upcoming_date2_str,
+                    'prediction': get_prediction_for_teams('Cavaliers', 'Pacers')
                 },
-                'away_team': {
-                    'id': '1610612739',
-                    'name': 'Cavaliers',
-                    'abbreviation': 'CLE',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612739/global/L/logo.svg',
-                    'score': 0
+                # 3 DAYS FROM NOW - Warriors vs Timberwolves
+                {
+                    'id': '0022400009',
+                    'home_team': {
+                        'id': '1610612744',
+                        'name': 'Warriors',
+                        'abbreviation': 'GSW',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612744/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'away_team': {
+                        'id': '1610612750',
+                        'name': 'Timberwolves',
+                        'abbreviation': 'MIN',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612750/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'status': 'SCHEDULED',
+                    'game_clock': '',
+                    'period': 0,
+                    'start_time': upcoming_date2_str,
+                    'prediction': get_prediction_for_teams('Warriors', 'Timberwolves')
                 },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': may_15_str,
-                'prediction': get_prediction_for_teams('Pacers', 'Cavaliers')
-            },
-            # May 15, 2025 - Nuggets vs Thunder
-            {
-                'id': '0022400005',
-                'home_team': {
-                    'id': '1610612743',
-                    'name': 'Nuggets',
-                    'abbreviation': 'DEN',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612743/global/L/logo.svg',
-                    'score': 0
+                # 5 DAYS FROM NOW - Celtics vs Knicks
+                {
+                    'id': '0022400010',
+                    'home_team': {
+                        'id': '1610612738',
+                        'name': 'Celtics',
+                        'abbreviation': 'BOS',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612738/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'away_team': {
+                        'id': '1610612752',
+                        'name': 'Knicks',
+                        'abbreviation': 'NYK',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612752/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'status': 'SCHEDULED',
+                    'game_clock': '',
+                    'period': 0,
+                    'start_time': upcoming_date3_str,
+                    'prediction': get_prediction_for_teams('Celtics', 'Knicks')
                 },
-                'away_team': {
-                    'id': '1610612760',
-                    'name': 'Thunder',
-                    'abbreviation': 'OKC',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612760/global/L/logo.svg',
-                    'score': 0
+                # 5 DAYS FROM NOW - Timberwolves vs Warriors
+                {
+                    'id': '0022400011',
+                    'home_team': {
+                        'id': '1610612750',
+                        'name': 'Timberwolves',
+                        'abbreviation': 'MIN',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612750/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'away_team': {
+                        'id': '1610612744',
+                        'name': 'Warriors',
+                        'abbreviation': 'GSW',
+                        'logo_url': 'https://cdn.nba.com/logos/nba/1610612744/global/L/logo.svg',
+                        'score': 0
+                    },
+                    'status': 'SCHEDULED',
+                    'game_clock': '',
+                    'period': 0,
+                    'start_time': upcoming_date3_str,
+                    'prediction': get_prediction_for_teams('Timberwolves', 'Warriors')
                 },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': may_15_str,
-                'prediction': get_prediction_for_teams('Nuggets', 'Thunder')
-            },
-            # May 17, 2025 - Knicks vs Celtics
-            {
-                'id': '0022400006',
-                'home_team': {
-                    'id': '1610612752',
-                    'name': 'Knicks',
-                    'abbreviation': 'NYK',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612752/global/L/logo.svg',
-                    'score': 0
-                },
-                'away_team': {
-                    'id': '1610612738',
-                    'name': 'Celtics',
-                    'abbreviation': 'BOS',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612738/global/L/logo.svg',
-                    'score': 0
-                },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': may_17_str,
-                'prediction': get_prediction_for_teams('Knicks', 'Celtics')
-            },
-            # May 18, 2025 - Cavaliers vs Pacers
-            {
-                'id': '0022400007',
-                'home_team': {
-                    'id': '1610612739',
-                    'name': 'Cavaliers',
-                    'abbreviation': 'CLE',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612739/global/L/logo.svg',
-                    'score': 0
-                },
-                'away_team': {
-                    'id': '1610612754',
-                    'name': 'Pacers',
-                    'abbreviation': 'IND',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612754/global/L/logo.svg',
-                    'score': 0
-                },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': may_18_str,
-                'prediction': get_prediction_for_teams('Cavaliers', 'Pacers')
-            },
-            # May 18, 2025 - Thunder vs Nuggets
-            {
-                'id': '0022400008',
-                'home_team': {
-                    'id': '1610612760',
-                    'name': 'Thunder',
-                    'abbreviation': 'OKC',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612760/global/L/logo.svg',
-                    'score': 0
-                },
-                'away_team': {
-                    'id': '1610612743',
-                    'name': 'Nuggets',
-                    'abbreviation': 'DEN',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612743/global/L/logo.svg',
-                    'score': 0
-                },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': may_18_str,
-                'prediction': get_prediction_for_teams('Thunder', 'Nuggets')
-            },
-            # May 18, 2025 - Warriors vs Timberwolves
-            {
-                'id': '0022400009',
-                'home_team': {
-                    'id': '1610612744',
-                    'name': 'Warriors',
-                    'abbreviation': 'GSW',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612744/global/L/logo.svg',
-                    'score': 0
-                },
-                'away_team': {
-                    'id': '1610612750',
-                    'name': 'Timberwolves',
-                    'abbreviation': 'MIN',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612750/global/L/logo.svg',
-                    'score': 0
-                },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': may_18_str,
-                'prediction': get_prediction_for_teams('Warriors', 'Timberwolves')
-            },
-            # May 20, 2025 - Celtics vs Knicks
-            {
-                'id': '0022400010',
-                'home_team': {
-                    'id': '1610612738',
-                    'name': 'Celtics',
-                    'abbreviation': 'BOS',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612738/global/L/logo.svg',
-                    'score': 0
-                },
-                'away_team': {
-                    'id': '1610612752',
-                    'name': 'Knicks',
-                    'abbreviation': 'NYK',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612752/global/L/logo.svg',
-                    'score': 0
-                },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': may_20_str,
-                'prediction': get_prediction_for_teams('Celtics', 'Knicks')
-            },
-            # May 21, 2025 - Timberwolves vs Warriors
-            {
-                'id': '0022400011',
-                'home_team': {
-                    'id': '1610612750',
-                    'name': 'Timberwolves',
-                    'abbreviation': 'MIN',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612750/global/L/logo.svg',
-                    'score': 0
-                },
-                'away_team': {
-                    'id': '1610612744',
-                    'name': 'Warriors',
-                    'abbreviation': 'GSW',
-                    'logo_url': 'https://cdn.nba.com/logos/nba/1610612744/global/L/logo.svg',
-                    'score': 0
-                },
-                'status': 'SCHEDULED',
-                'game_clock': '',
-                'period': 0,
-                'start_time': may_21_str,
-                'prediction': get_prediction_for_teams('Timberwolves', 'Warriors')
-            }
-        ]
+            ]
         
         # Properly categorize games based on date and status
         today_games = []
         upcoming_games = []
         live_games = []
         
+        print(f"Categorizing {len(all_games)} games...")
         for game in all_games:
-            # Parse the game start time
-            game_date = datetime.datetime.strptime(game['start_time'], '%Y-%m-%dT%H:%M:%SZ')
-            game_day = datetime.datetime(game_date.year, game_date.month, game_date.day)
-            
-            # Apply the correct categorization logic
-            if game_day.date() == today.date():
-                # Game is scheduled for today
+            try:
+                # Parse the game start time
+                game_date = datetime.datetime.strptime(game['start_time'], '%Y-%m-%dT%H:%M:%SZ')
+                game_day = datetime.datetime(game_date.year, game_date.month, game_date.day)
+                
+                print(f"Game {game['id']} - {game['home_team']['name']} vs {game['away_team']['name']} - Status: {game['status']} - Date: {game_day.date()} - Today: {today.date()}")
+                
+                # Apply the correct categorization logic
                 if game['status'] == 'LIVE':
                     # Game is live
+                    print(f"Adding game {game['id']} to LIVE games")
                     live_games.append(game)
-                # All games scheduled for today go in today_games
-                today_games.append(game)
-            elif game_day > today:
-                # Game is in the future
-                upcoming_games.append(game)
+                    
+                if game_day.date() == today.date():
+                    # Game is scheduled for today
+                    print(f"Adding game {game['id']} to TODAY games")
+                    today_games.append(game)
+                elif game_day.date() > today.date():
+                    # Game is in the future
+                    print(f"Adding game {game['id']} to UPCOMING games")
+                    upcoming_games.append(game)
+            except Exception as e:
+                print(f"Error categorizing game {game['id']}: {e}")
+        
+        print(f"Categorization complete: Today: {len(today_games)}, Upcoming: {len(upcoming_games)}, Live: {len(live_games)}")
         
         # Filter based on category parameter
         if category == 'today':
             games = today_games
+            return jsonify({'games': games})
         elif category == 'upcoming':
             games = upcoming_games
+            return jsonify({'games': games})
         elif category == 'live':
             games = live_games
+            return jsonify({'games': games})
         else:
             # Return all categories with their respective games
             return jsonify({
